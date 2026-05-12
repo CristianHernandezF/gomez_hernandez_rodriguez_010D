@@ -3,7 +3,6 @@ package com.hospital.service_direccion.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,9 +32,9 @@ public class DireccionController {
         }
 
         @PostMapping
-        public ResponseEntity<Direccion> crear(@RequestBody Direccion direccion){
+        public Long crear(@RequestBody Direccion direccion){
             
             Direccion nuevaDireccion = direccionService.creaDireccion(direccion);
-            return new ResponseEntity<>(nuevaDireccion,HttpStatus.ACCEPTED);
+            return nuevaDireccion.getId();
         }
 }
