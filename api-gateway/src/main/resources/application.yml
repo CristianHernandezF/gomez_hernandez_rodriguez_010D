@@ -1,39 +1,68 @@
 server:
-   port: 8081
+  port: 8081
 
 spring:
-    application:
-        name: api-gateway
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # SERVICIO DE LOGIN (Público)
+        - id: service-login
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/auth/**
 
-    cloud:
-       gateway:
-        routes:
-            - id: login
-              uri: http://localhost:8082
-              predicates:
-                - Path=/api/**
+        # SERVICIO DE DIRECCIONES (Protegido)
+        - id: service-direccion
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/v1/direcciones/**, /api/v1/comunas/**, /api/v1/regiones/**
+          filters:
+            - AuthenticationFilter
 
-            - id: service-direccion
-              uri: http://localhost:8083
-              predicates:
-                - Path=/api/v1/**
-            
-            - id: service-registro_paciente
-              uri: http://localhost:8084
-              predicates:
-                - Path=/api/v1/**
+        # SERVICIO DE PACIENTES (Protegido)
+        - id: service-pacientes
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/v1/pacientes/**
+          filters:
+            - AuthenticationFilter
 
-            - id: service-calendario
-              uri: http://localhost:8086
-              predicates:
-                - Path=/api/v1/**
+         # --- SEPARACIÓN DEL SERVICIO DE DOCTORES ---
 
-            - id: registro_doctor
-              uri: http://localhost:8085
-              predicates:
-                - Path=/api/v1/**
+        # 1. Registro y Gestión de Doctores (Público o sin filtro de RUN)
+        # Esto permite crear doctores sin estar logueado previamente
+        - id: service-doctores-gestion
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/v1/doctores/**
 
-            - id: service-estadocita
-              uri: http://localhost:8087
-              predicates:
-                - Path=/api/v1/**
+        # 2. Gestión de Atenciones (Protegido)
+        # Aquí sí se valida el Token y se extrae el RUN del Doctor
+        - id: service-doctores-atenciones
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/v1/atenciones/**
+          filters:
+            - AuthenticationFilter
+
+        # ------------------------------------------
+
+        # SERVICIO DE CALENDARIO (Protegido)
+        - id: service-calendario
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/v1/calendario/**
+          filters:
+            - AuthenticationFilter
+
+        # SERVICIO DE ESTADO CITA (Protegido)
+        - id: service-estadocita
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/v1/estadocita/**
+          filters:
+            - AuthenticationFilter
+
+jwt.secret: "39b45678a1b2c3d4e5f678901234567890abcdef1234567890abcdef12345678"

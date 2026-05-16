@@ -14,6 +14,7 @@ import com.hospital.service_direccion.repository.RegionRepository;
 public class ComunaService {
     @Autowired
     private ComunaRepository comunaRepository;
+    @Autowired
     private RegionRepository regionRepository;
 
     public List<Comuna> listarTodos(){

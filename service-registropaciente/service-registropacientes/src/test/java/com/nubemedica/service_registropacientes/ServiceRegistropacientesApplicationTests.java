@@ -1,0 +1,13 @@
+package com.nubemedica.service_registropacientes;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class ServiceRegistropacientesApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
