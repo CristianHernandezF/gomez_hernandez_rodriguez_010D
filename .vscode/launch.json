@@ -1,0 +1,88 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-ApiGatewayApplication<api-gateway>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.api_gateway.ApiGatewayApplication",
+            "projectName": "api-gateway",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceCalendarioApplication<service-calendario>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.service_calendario.ServiceCalendarioApplication",
+            "projectName": "service-calendario",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceDireccionApplication<service-direccion>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.hospital.service_direccion.ServiceDireccionApplication",
+            "projectName": "service-direccion",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceEstadocitaApplication<service-estadocita>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.service_estadocita.ServiceEstadocitaApplication",
+            "projectName": "service-estadocita",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceLoginApplication<service-login>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.service_login.ServiceLoginApplication",
+            "projectName": "service-login",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceRegistrodoctorApplication<service-registrodoctor>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.service_registrodoctor.ServiceRegistrodoctorApplication",
+            "projectName": "service-registrodoctor",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceRegistropacientesApplication<service-registropacientes>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.service_registropacientes.ServiceRegistropacientesApplication",
+            "projectName": "service-registropacientes",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceFichamedicaApplication<service-fichamedica>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.service_fichamedica.ServiceFichamedicaApplication",
+            "projectName": "service-fichamedica",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
