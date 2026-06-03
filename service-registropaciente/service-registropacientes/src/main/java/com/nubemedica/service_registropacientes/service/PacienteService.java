@@ -3,6 +3,7 @@ package com.nubemedica.service_registropacientes.service;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
@@ -25,29 +26,34 @@ public class PacienteService {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
-    // MÉTODO: GUARDAR / ASOCIAR PACIENTE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // MÉTODOS PÚBLICOS (NORMALIZADOS)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     @Transactional
     public PacienteRegistroResponse guardarPaciente(PacienteRegistroRequest request, String runDoctor) {
-        
         Optional<Paciente> pacienteExistente = pacienteRepository.findById(request.getRunPaciente());
+
         // 1. Si el paciente ya existe en el sistema global
         if (pacienteExistente.isPresent()) {
             Paciente existente = pacienteExistente.get();
-            // Solo creamos la relación en MS-DOCTOR
+            // Asociamos al nuevo doctor
             asociarDoctorAPaciente(runDoctor, existente.getRunPaciente());
-            enriquecerConDireccion(existente);
+            
+            // Enriquecemos (traemos dirección) y mapeamos al DTO único
+            Paciente enriquecido = enriquecerConDireccion(existente);
             return new PacienteRegistroResponse(
-                    existente,
+                    mapearAPacienteResponse(enriquecido),
                     "El paciente ya existe. Se ha creado la relación con usted exitosamente.",
                     true
             );
-        }     
+        }
 
         // 2. Validar duplicados de contacto
         validarDatosUnicos(request.getCorreo(), request.getNumTelefono());
 
-        // 3. Crear dirección en MS-DIRECCION
-        Long idDireccion = crearDireccionEnMS(request.getDireccion());
+        // 3. Crear dirección en MS-DIRECCION (Recibimos el DTO Plano de respuesta)
+        DireccionResponse direccionGuardada = crearDireccionEnMS(request.getDireccion());
 
         // 4. Crear paciente nuevo
         Paciente nuevoPaciente = new Paciente();
@@ -58,55 +64,54 @@ public class PacienteService {
         nuevoPaciente.setApaPaterno(request.getApaPaterno());
         nuevoPaciente.setApaMaterno(request.getApaMaterno());
         nuevoPaciente.setNumTelefono(request.getNumTelefono());
-        nuevoPaciente.setIdDireccion(idDireccion);
+        
+        // Guardamos el ID que nos devolvió el MS-DIRECCION
+        nuevoPaciente.setIdDireccion(direccionGuardada.getIdDireccion());
 
         Paciente guardado = pacienteRepository.save(nuevoPaciente);
 
         // 5. Crear la relación en MS-DOCTOR
         asociarDoctorAPaciente(runDoctor, guardado.getRunPaciente());
 
+        // 6. Asignación manual para evitar segunda llamada HTTP innecesaria
+        guardado.setDatosDireccion(direccionGuardada);
+
         return new PacienteRegistroResponse(
-                enriquecerConDireccion(guardado),
+                mapearAPacienteResponse(guardado),
                 "Paciente registrado y asociado exitosamente.",
                 false);
     }
 
-    public Paciente obtenerPacientePorRun(String runPaciente, String runDoctorToken) {
+    public PacienteResponse obtenerPacientePorRun(String runPaciente, String runDoctorToken) {
         // SEGURIDAD: Validar que el paciente pertenece al doctor
         validarRelacionDoctorPaciente(runDoctorToken, runPaciente);
 
-        return pacienteRepository.findById(runPaciente)
-                .map(this::enriquecerConDireccion)
-                .orElseThrow(() -> new NoExistePacienteException(runPaciente));   
+        Paciente paciente = pacienteRepository.findById(runPaciente)
+                .orElseThrow(() -> new NoExistePacienteException(runPaciente));
+        
+        return mapearAPacienteResponse(enriquecerConDireccion(paciente));
     }
 
-    public List<Paciente> listarPacientesDeUnDoctor(String runDoctorToken) {
+    public List<PacienteResponse> listarPacientesDeUnDoctor(String runDoctorToken) {
         // 1. Obtenemos los RUNs desde el microservicio de doctores
         List<String> runsAsociados = obtenerRunsAsociados(runDoctorToken);
-        System.out.println("RUNs asociados obtenidos de MS-DOCTORES: " + runsAsociados);
-        // 2. BUSCAMOS SOLO ESOS IDs (findAllById) y enriquecemos
+        
+        // 2. Buscamos las entidades, las enriquecemos y mapeamos a Response
         return pacienteRepository.findAllById(runsAsociados).stream()
             .map(this::enriquecerConDireccion)
-            .toList();
+            .map(this::mapearAPacienteResponse)
+            .collect(Collectors.toList());
     }
-
-    public List<Paciente> listarPacientes() {
-        return pacienteRepository.findAll().stream()
-                .map(this::enriquecerConDireccion)
-                .toList();
-    }
-
-    // MÉTODOS DE ACTUALIZACIÓN / ELIMINACIÓN
 
     @Transactional
-    public Paciente actualizarPaciente(String runPaciente, ActualizarPacienteRequest request, String runDoctorToken) {
+    public PacienteResponse actualizarPaciente(String runPaciente, ActualizarPacienteRequest request, String runDoctorToken) {
         // SEGURIDAD: Validar propiedad
         validarRelacionDoctorPaciente(runDoctorToken, runPaciente);
 
         Paciente existente = pacienteRepository.findById(runPaciente)
                 .orElseThrow(() -> new NoExistePacienteException(runPaciente));
 
-        // Validar correos/teléfonos duplicados con otros pacientes
+        // Validar correos/teléfonos duplicados
         validarDatosUnicosParaActualizacion(existente, request);
 
         // Actualizar datos
@@ -117,25 +122,85 @@ public class PacienteService {
         existente.setApaMaterno(request.getApaMaterno());
         existente.setNumTelefono(request.getNumTelefono());
 
+        // Actualizar dirección en MS-DIRECCION
+        actualizarDireccionEnMS(existente.getIdDireccion(), request.getDireccion());
+
         Paciente actualizado = pacienteRepository.save(existente);
         
-        // Actualizar dirección en MS-DIRECCION
-        actualizarDireccionEnMS(existente.getIdDireccion(), request.getDireccion());    
-
-        return enriquecerConDireccion(actualizado);
+        return mapearAPacienteResponse(enriquecerConDireccion(actualizado));
     }
-
-    //Seccion Eliminar
 
     @Transactional
     public void eliminarRelacionDoctorPaciente(String runPaciente, String runDoctorToken) {
-
         validarRelacionDoctorPaciente(runDoctorToken, runPaciente);
         RelacionDoctorPacienteDTO dto = new RelacionDoctorPacienteDTO(runDoctorToken, runPaciente);
         desasociarPacienteDeDoctor(dto);
     }
 
-    //Metodos de apoyo y validacion
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // MÉTODOS DE APOYO Y MAPEO
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /**
+     * Centraliza la creación del DTO de respuesta único
+     */
+    private PacienteResponse mapearAPacienteResponse(Paciente p) {
+        return PacienteResponse.builder()
+                .runPaciente(p.getRunPaciente())
+                .correo(p.getCorreo())
+                .numTelefono(p.getNumTelefono())
+                .nombreCompleto(p.getPriNombre() + 
+                                (p.getSegNombre() != null ? " " + p.getSegNombre() : "") + 
+                                " " + p.getApaPaterno() + 
+                                " " + p.getApaMaterno())
+                .direccion(p.getDatosDireccion())
+                .build();
+    }
+
+    private Paciente enriquecerConDireccion(Paciente paciente) {
+        if (paciente.getIdDireccion() == null) return paciente;
+        try {
+            DireccionResponse dir = webClientBuilder.build().get()
+                    .uri("http://localhost:8083/api/v1/direcciones/" + paciente.getIdDireccion())
+                    .retrieve()
+                    .bodyToMono(DireccionResponse.class) // TIPADO FUERTE: No más Object
+                    .block();
+            paciente.setDatosDireccion(dir);
+        } catch (Exception e) {
+            paciente.setDatosDireccion(null);
+        }
+        return paciente;
+    }
+
+    private DireccionResponse crearDireccionEnMS(DireccionRequest dto) {
+        try {
+            return webClientBuilder.build().post()
+                    .uri("http://localhost:8083/api/v1/direcciones")
+                    .bodyValue(dto)
+                    .retrieve()
+                    .bodyToMono(DireccionResponse.class) // Recibe el DTO plano completo
+                    .block();
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException("Error al crear dirección en MS-DIRECCION", e);
+        }
+    }
+
+    private void actualizarDireccionEnMS(Long id, DireccionRequest direccion) {
+        try {
+            webClientBuilder.build().put()
+                    .uri("http://localhost:8083/api/v1/direcciones/" + id)
+                    .bodyValue(direccion)
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .block();
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException("Error al actualizar dirección en MS-DIRECCION", e);
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // VALIDACIONES Y COMUNICACIÓN DOCTOR
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     private void validarDatosUnicos(String correo, String telefono) {
         if (pacienteRepository.existsByCorreo(correo)) 
@@ -156,8 +221,6 @@ public class PacienteService {
                 .orElseThrow(() -> new NoExistePacienteException(runPaciente));
     }
 
-    // COMUNICACIÓN EXTERNA (WEBCLIENT)
-    
     private void validarRelacionDoctorPaciente(String runDoctor, String runPaciente) {
         try {
             Boolean existe = webClientBuilder.build()
@@ -171,23 +234,8 @@ public class PacienteService {
             }
         } catch (AccesoDenegadoException e) { throw e; }
         catch (Exception e) {
-            throw new ComunicacionMicroservicioException("Error de validación de seguridad en MS-DOCTORES", e);
+            throw new ComunicacionMicroservicioException("Error de validación en MS-DOCTORES", e);
         }
-    }
-
-    private Paciente enriquecerConDireccion(Paciente paciente) {
-        if (paciente.getIdDireccion() == null) return paciente;
-        try {
-            Object dir = webClientBuilder.build().get()
-                    .uri("http://localhost:8083/api/v1/direcciones/" + paciente.getIdDireccion())
-                    .retrieve()
-                    .bodyToMono(Object.class).block();
-            paciente.setDatosDireccion(dir);
-        } catch (Exception e) {
-            paciente.setDatosDireccion(null);
-            throw new ComunicacionMicroservicioException("Información de dirección no disponible", e);
-        }
-        return paciente;
     }
 
     private void asociarDoctorAPaciente(String runDoctor, String runPaciente) {
@@ -200,64 +248,35 @@ public class PacienteService {
                     .bodyToMono(Void.class)
                     .block();
         } catch (Exception e) {
-            throw new ComunicacionMicroservicioException("No se pudo asociar el paciente al doctor en MS-DOCTORES", e);
-        }
-    }
-
-    private Long crearDireccionEnMS(DireccionDTO dto) {
-        try {
-            return webClientBuilder.build().post()
-                    .uri("http://localhost:8083/api/v1/direcciones")
-                    .bodyValue(dto)
-                    .retrieve()
-                    .bodyToMono(Long.class)
-                    .block();
-        } catch (Exception e) {
-            throw new ComunicacionMicroservicioException("Error al crear dirección en MS-DIRECCION", e);
-        }
-    }
-
-    private void actualizarDireccionEnMS(Long id, DireccionDTO direccion) {
-        try {
-            webClientBuilder.build().put()
-                    .uri("http://localhost:8083/api/v1/direcciones/" + id)
-                    .bodyValue(direccion)
-                    .retrieve()
-                    .bodyToMono(Void.class)
-                    .block();
-        } catch (Exception e) {
-            throw new ComunicacionMicroservicioException("Error al actualizar dirección en MS-DIRECCION", e);
+            throw new ComunicacionMicroservicioException("No se pudo asociar el paciente al doctor", e);
         }
     }
 
     private List<String> obtenerRunsAsociados(String runDoctorToken) {
         try {
-            return webClientBuilder.build()
+            String[] runs = webClientBuilder.build()
                     .get()
                     .uri("http://localhost:8085/api/v1/atenciones/doctor/" + runDoctorToken)
                     .retrieve()
-                    .bodyToMono(String[].class)  
-                    .map(Arrays::asList)
+                    .bodyToMono(String[].class)
                     .block();
+            return Arrays.asList(runs);
         } catch (Exception e) {
-            throw new ComunicacionMicroservicioException("Fallo al conectar con MS-DOCTORES para obtener lista de RUNs", e);
+            throw new ComunicacionMicroservicioException("Fallo al obtener RUNs de MS-DOCTORES", e);
         }
     }
 
     private void desasociarPacienteDeDoctor(RelacionDoctorPacienteDTO dto) {
         try {
-            // Realizamos la conexión física enviando el DTO como cuerpo
             webClientBuilder.build()
                     .method(HttpMethod.DELETE)
                     .uri("http://localhost:8085/api/v1/atenciones/" + dto.getRunPaciente() + "/desasociar")
-                    .bodyValue(dto.getRunDoctor()) // <--- USANDO EL DTO OFICIAL
+                    .bodyValue(dto.getRunDoctor())
                     .retrieve()
                     .bodyToMono(Void.class)
                     .block();
-
         } catch (Exception e) {
-            throw new ComunicacionMicroservicioException("Fallo de comunicación: No se pudo desasociar el paciente en MS-DOCTORES", e);
+            throw new ComunicacionMicroservicioException("No se pudo desasociar el paciente", e);
         }
     }
-
 }

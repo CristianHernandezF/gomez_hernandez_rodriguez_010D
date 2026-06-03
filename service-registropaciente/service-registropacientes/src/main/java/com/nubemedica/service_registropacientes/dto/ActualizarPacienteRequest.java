@@ -28,5 +28,5 @@ public class ActualizarPacienteRequest {
     private String numTelefono;
 
 
-    private DireccionDTO direccion; // Renombrado de direccionDTO a direccion
+    private DireccionRequest direccion; // Renombrado de direccionDTO a direccion
 }

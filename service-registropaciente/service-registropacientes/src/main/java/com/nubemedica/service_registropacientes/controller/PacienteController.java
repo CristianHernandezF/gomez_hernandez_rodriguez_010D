@@ -9,10 +9,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nubemedica.service_registropacientes.dto.PacienteRegistroResponse;
+import com.nubemedica.service_registropacientes.dto.PacienteResponse;
 import com.nubemedica.service_registropacientes.dto.PacienteResumenDTO;
 import com.nubemedica.service_registropacientes.dto.PacienteRegistroRequest;
 import com.nubemedica.service_registropacientes.dto.ActualizarPacienteRequest;
-import com.nubemedica.service_registropacientes.model.Paciente;
 import com.nubemedica.service_registropacientes.service.PacienteService;
 
 import jakarta.validation.Valid;
@@ -39,13 +39,13 @@ public class PacienteController {
     }
     
     @GetMapping("/{runPaciente}")
-    public ResponseEntity<Paciente> obtenerPaciente (@PathVariable String runPaciente,
+    public ResponseEntity<PacienteResponse> obtenerPaciente (@PathVariable String runPaciente,
         @RequestHeader("X-Doctor-Run") String runDoctor){
         return ResponseEntity.ok(pacienteService.obtenerPacientePorRun(runPaciente, runDoctor));
     }
 
     @GetMapping
-    public ResponseEntity<List<Paciente>> listarMisPacientes(@RequestHeader("X-Doctor-Run") String runDoctor){
+    public ResponseEntity<List<PacienteResponse>> listarMisPacientes(@RequestHeader("X-Doctor-Run") String runDoctor){
         return ResponseEntity.ok(pacienteService.listarPacientesDeUnDoctor(runDoctor));
     }
 
@@ -55,7 +55,7 @@ public class PacienteController {
     }
 
     @PutMapping("/{runPaciente}")
-    public ResponseEntity<Paciente> actualizarPaciente(@PathVariable String runPaciente,
+    public ResponseEntity<PacienteResponse> actualizarPaciente(@PathVariable String runPaciente,
         @Valid @RequestBody ActualizarPacienteRequest request,
         @RequestHeader("X-Doctor-Run") String runDoctor){
         return ResponseEntity.ok(pacienteService.actualizarPaciente(runPaciente, request, runDoctor));

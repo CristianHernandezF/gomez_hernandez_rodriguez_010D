@@ -33,5 +33,5 @@ public class PacienteRegistroRequest {
 
     @NotNull(message = "La dirección es obligatoria")
     @Valid 
-    private DireccionDTO direccion; 
+    private DireccionRequest direccion; 
 }

@@ -1,5 +1,7 @@
 package com.nubemedica.service_registropacientes.model;
 
+import com.nubemedica.service_registropacientes.dto.DireccionResponse;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -45,6 +47,6 @@ public class Paciente {
 
     // Se usa para traer datos de la dirección desde MS4 sin acoplar tablas
     @Transient
-    private Object datosDireccion; 
+    private DireccionResponse datosDireccion; 
 
 }
