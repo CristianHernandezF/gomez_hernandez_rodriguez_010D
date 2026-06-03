@@ -7,8 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import com.nubemedica.service_registrodoctor.dto.AtencionesDoctorDTO;
-import com.nubemedica.service_registrodoctor.dto.PacienteResumenDTO;
+import com.nubemedica.service_registrodoctor.dto.*;
 import com.nubemedica.service_registrodoctor.exceptions.ComunicacionMicroservicioException;
 import com.nubemedica.service_registrodoctor.model.AtencionesDoctor;
 import com.nubemedica.service_registrodoctor.model.RegistroDoctor;
@@ -29,7 +28,6 @@ public class AtencionesDoctorService {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
-
     @Transactional
     public AtencionesDoctor registrarAtencion(AtencionesDoctorDTO atencionDTO) {
         AtencionesDoctor atencion = new AtencionesDoctor();
@@ -38,53 +36,46 @@ public class AtencionesDoctorService {
         return atencionesRepository.save(atencion);
     }
 
-    // Método principal para listar pacientes de un doctor
     public List<AtencionesDoctor> listarPacientesDeDoctor(String runDoctor) {
         List<AtencionesDoctor> atenciones = atencionesRepository.findByDoctorRunDoctor(runDoctor);
 
-        // Recorremos la lista y enriquecemos cada atención con los datos del paciente
         return atenciones.stream()
-                .map(this::enriquecerConDatosPaciente).map(atencion -> {
-                    // También enriquecemos el doctor con su dirección
+                .map(this::enriquecerConDatosPaciente)
+                .map(atencion -> {
                     atencion.setDoctor(darleLaDireccion(atencion.getDoctor()));
-                    return atencion;}).toList();
+                    return atencion;
+                }).toList();
     }
 
-    public List<String> RutsPacientesDoctor(String runDoctor){
+    public List<String> RutsPacientesDoctor(String runDoctor) {
         return atencionesRepository.findRunPacientesByRunDoctor(runDoctor);
-    }    
+    }
 
     public List<AtencionesDoctor> listarDoctoresDePaciente(String runPaciente) {
         return atencionesRepository.findByRunPaciente(runPaciente);
     }
-    
+
     @Modifying
     @Transactional
     public void eliminarRelacion(String runPaciente, String runDoctor) {
-        // 1. Borrar la relación física en la tabla atenciones_doctor
         atencionesRepository.deleteByRunPacienteAndDoctorRunDoctor(runPaciente, runDoctor);
-
-        // 2. Notificar a MS-CALENDARIO para limpiar las citas de esa relación
         eliminarCitasEnCalendarioMS(runDoctor, runPaciente);
     }
 
-    public boolean verificarRelacion(String runDoctor, String runPaciente){
+    public boolean verificarRelacion(String runDoctor, String runPaciente) {
         return atencionesRepository.existsByDoctorRunDoctorAndRunPaciente(runDoctor, runPaciente);
     }
 
-
     private AtencionesDoctor enriquecerConDatosPaciente(AtencionesDoctor atencion) {
         try {
-            PacienteResumenDTO resumen = webClientBuilder.build()
-                    .get()
+            PacienteResumen resumen = webClientBuilder.build().get()
                     .uri("http://localhost:8084/api/v1/pacientes/" + atencion.getRunPaciente() + "/resumen")
                     .retrieve()
-                    .bodyToMono(PacienteResumenDTO.class)
+                    .bodyToMono(PacienteResumen.class)
                     .block();
-
             atencion.setDatosPaciente(resumen);
         } catch (Exception e) {
-           throw new ComunicacionMicroservicioException("Error al comunicarse con MS-PACIENTES para obtener el al paciente", e);
+            throw new ComunicacionMicroservicioException("Error al obtener resumen del paciente", e);
         }
         return atencion;
     }
@@ -92,15 +83,15 @@ public class AtencionesDoctorService {
     private RegistroDoctor darleLaDireccion(RegistroDoctor doctor) {
         if (doctor.getIdDireccion() != null) {
             try {
-                Object datosDireccion = webClientBuilder.build()
-                        .get()
+                // USAMOS EL DTO PLANO DireccionResponse
+                DireccionResponse dir = webClientBuilder.build().get()
                         .uri("http://localhost:8083/api/v1/direcciones/" + doctor.getIdDireccion())
                         .retrieve()
-                        .bodyToMono(Object.class)
+                        .bodyToMono(DireccionResponse.class)
                         .block();
-                doctor.setDatosDireccion(datosDireccion);
+                doctor.setDatosDireccion(dir);
             } catch (Exception e) {
-                throw new ComunicacionMicroservicioException("No se pudo obtener la dirección desde MS-DIRECCION", e);
+                doctor.setDatosDireccion(null);
             }
         }
         return doctor;
@@ -108,15 +99,11 @@ public class AtencionesDoctorService {
 
     private void eliminarCitasEnCalendarioMS(String runDoctor, String runPaciente) {
         try {
-            webClientBuilder.build()
-                    .delete()
+            webClientBuilder.build().delete()
                     .uri("http://localhost:8086/api/v1/calendario/citas/doctor/" + runDoctor + "/paciente/" + runPaciente)
-                    .retrieve()
-                    .bodyToMono(Void.class)
-                    .block();
+                    .retrieve().bodyToMono(Void.class).block();
         } catch (Exception e) {
-            System.err.println("Error al limpiar citas en MS-CALENDARIO: " + e.getMessage());
+            System.err.println("Error eliminando citas en calendario: " + e.getMessage());
         }
     }
-
 }

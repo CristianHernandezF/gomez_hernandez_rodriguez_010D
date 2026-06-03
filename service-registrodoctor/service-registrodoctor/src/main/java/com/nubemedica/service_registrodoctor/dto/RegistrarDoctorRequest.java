@@ -2,6 +2,7 @@ package com.nubemedica.service_registrodoctor.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
@@ -31,6 +32,6 @@ public class RegistrarDoctorRequest {
     @NotBlank(message = "La contraseña es obligatoria")
     private String contrasena;
 
-
-    private DireccionDTO direccion;
+    @NotNull(message = "La dirección es obligatoria")
+    private DireccionRequest direccion;
 }

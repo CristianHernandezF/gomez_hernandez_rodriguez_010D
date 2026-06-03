@@ -11,11 +11,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-
 import org.springframework.web.bind.annotation.RestController;
 
-import com.hospital.service_direccion.dto.DireccionDTO;
-import com.hospital.service_direccion.model.Direccion;
+import com.hospital.service_direccion.dto.DireccionRequest;
+import com.hospital.service_direccion.dto.DireccionResponse;
 import com.hospital.service_direccion.service.DireccionService;
 
 @RestController
@@ -25,25 +24,26 @@ public class DireccionController {
         private DireccionService direccionService;
 
         @GetMapping
-        public List<Direccion> listarTodas(){
+        public List<DireccionResponse> listarTodas(){
             return direccionService.listarTodos();
         }
 
         @GetMapping("/{id}")
-        public ResponseEntity<Direccion> obtenerPorId(@PathVariable Long id) {
+        public ResponseEntity<DireccionResponse> obtenerPorId(@PathVariable Long id) {
             return ResponseEntity.ok(direccionService.obtenerPorId(id));
         }
 
         @PostMapping
-        public Long crear(@RequestBody DireccionDTO direccionDTO){
+        public Long crear(@RequestBody DireccionRequest direccionRequest){
             
-            Direccion nuevaDireccion = direccionService.creaDireccion(direccionDTO);
-            return nuevaDireccion.getId();
+            DireccionResponse nuevaDireccion = direccionService.crearDireccion(direccionRequest);
+            return nuevaDireccion.getIdDireccion();
         }
 
         @PutMapping("/{id}")
-        public ResponseEntity<Void> actualizar(@PathVariable Long id, @RequestBody DireccionDTO direccionDTO) {
-            direccionService.actualizarDireccion(id, direccionDTO);
+        public ResponseEntity<Void> actualizar(@PathVariable Long id, 
+            @RequestBody DireccionRequest direccionRequest) {
+            direccionService.actualizarDireccion(id, direccionRequest);
             return ResponseEntity.ok().build();
         }
 

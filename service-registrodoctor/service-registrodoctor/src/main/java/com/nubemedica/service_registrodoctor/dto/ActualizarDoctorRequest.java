@@ -29,5 +29,5 @@ public class ActualizarDoctorRequest {
 
     // DIRECCIÓN
     @NotNull(message = "La dirección es obligatoria")
-    private DireccionDTO direccion;
+    private DireccionRequest direccion;
 }

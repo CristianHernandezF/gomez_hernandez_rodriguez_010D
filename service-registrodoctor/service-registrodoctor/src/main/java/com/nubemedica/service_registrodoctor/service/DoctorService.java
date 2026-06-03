@@ -1,18 +1,14 @@
 package com.nubemedica.service_registrodoctor.service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-import com.nubemedica.service_registrodoctor.dto.LoginUsuarioRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import com.nubemedica.service_registrodoctor.dto.ActualizarDoctorRequest;
-import com.nubemedica.service_registrodoctor.dto.DireccionDTO;
-import com.nubemedica.service_registrodoctor.dto.RegistrarDoctorRequest;
-import com.nubemedica.service_registrodoctor.exceptions.ComunicacionMicroservicioException;
-import com.nubemedica.service_registrodoctor.exceptions.DatoDuplicadoException;
-import com.nubemedica.service_registrodoctor.exceptions.NoExisteDoctorException;
+import com.nubemedica.service_registrodoctor.dto.*;
+import com.nubemedica.service_registrodoctor.exceptions.*;
 import com.nubemedica.service_registrodoctor.model.RegistroDoctor;
 import com.nubemedica.service_registrodoctor.repository.RegistroDoctorRepository;
 
@@ -31,10 +27,10 @@ public class DoctorService {
     // SECCIÓN DOCTOR
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    @Transactional
-    public RegistroDoctor registrarDoctor(RegistrarDoctorRequest request) {
+@Transactional
+    public DoctorResponse registrarDoctor(RegistrarDoctorRequest request) {
 
-        // 1. Validar duplicados
+        // 1. Validar duplicados (Email, RUN, Teléfono)
         if (doctorRepository.existsById(request.getRunDoctor())) {
             throw new DatoDuplicadoException("Ya existe un doctor con el RUN: " + request.getRunDoctor());
         }
@@ -45,11 +41,11 @@ public class DoctorService {
             throw new DatoDuplicadoException("Ya existe un doctor con el teléfono: " + request.getTelefono());
         }
 
-        // 2. Crear dirección en MS de direcciones
-        DireccionDTO direccionDTO = new DireccionDTO(request.getDireccion().getNombre(), request.getDireccion().getComunaId());
-        Long idDireccion = crearDireccion(direccionDTO);
+        // 2. Crear dirección en MS-DIRECCIONES 
+        // Obtenemos la respuesta completa (ID, calle, comuna, region)
+        DireccionResponse direccionEnriquecida = crearDireccionEnMS(request.getDireccion());
 
-        // 3. Crear doctor
+        // 3. Crear instancia del modelo
         RegistroDoctor doctor = new RegistroDoctor();
         doctor.setRunDoctor(request.getRunDoctor());
         doctor.setCorreo(request.getCorreo());
@@ -58,27 +54,36 @@ public class DoctorService {
         doctor.setApaPaterno(request.getApaPaterno());
         doctor.setApaMaterno(request.getApaMaterno());
         doctor.setTelefono(request.getTelefono());
-        doctor.setIdDireccion(idDireccion);
+        
+        // Guardamos el ID de la dirección para la base de datos
+        doctor.setIdDireccion(direccionEnriquecida.getIdDireccion());
 
+        // 4. Crear credenciales en MS-LOGIN
         crearLoginUsuario(request);
 
-        // 4. Guardar y enriquecer
+        // 5. Guardar en la base de datos local
         RegistroDoctor guardado = doctorRepository.save(doctor);
-        return enriquecerConDireccion(guardado);
+        
+        // Seteamos el DTO de dirección al campo @Transient del modelo guardado
+        guardado.setDatosDireccion(direccionEnriquecida);
+
+        // 7. Retornar el DTO de respuesta final
+        return mapearADoctorResponse(guardado);
     }
 
-    public List<RegistroDoctor> listarTodos() {
-        List<RegistroDoctor> lista = doctorRepository.findAll();
-        lista.forEach(this::enriquecerConDireccion);
-        return lista;
+    public List<DoctorResponse> listarTodos() {
+        return doctorRepository.findAll().stream()
+                .map(this::enriquecerConDireccion) // Llena el @Transient datosDireccion
+                .map(this::mapearADoctorResponse)  // Convierte Entidad -> DTO
+                .collect(Collectors.toList());
     }
 
-    public RegistroDoctor obtenerPorRun(String runDoctor) {
+    public DoctorResponse obtenerPorRun(String runDoctor) {
         RegistroDoctor doctor = doctorRepository.findByRunDoctor(runDoctor);
-        if (doctor != null) {
-            return enriquecerConDireccion(doctor);
+        if (doctor == null) {
+            throw new NoExisteDoctorException(runDoctor);
         }
-        throw new NoExisteDoctorException(runDoctor);
+        return mapearADoctorResponse(enriquecerConDireccion(doctor));
     }
 
     @Transactional
@@ -88,40 +93,26 @@ public class DoctorService {
             throw new NoExisteDoctorException(runDoctor);
         }
 
-        // 1. AVISAR A MS-CALENDARIO (Este ya limpiará los estados de las citas por dentro)
         eliminarDatosCalendarioEnMS(runDoctor);
 
-        // 2. BORRAR DIRECCIÓN EN MS-DIRECCION
         if (doctor.getIdDireccion() != null) {
             eliminarDireccionEnMS(doctor.getIdDireccion());
         }
-
-        // 3. Borrar de su propia base de datos (Doctor y tabla intermedia Atenciones)
         doctorRepository.deleteByRunDoctor(runDoctor);
     }
 
-
     @Transactional
-    public RegistroDoctor actualizarDoctor(String runDoctor, ActualizarDoctorRequest request) {
+    public DoctorResponse actualizarDoctor(String runDoctor, ActualizarDoctorRequest request) {
         RegistroDoctor existente = doctorRepository.findByRunDoctor(runDoctor);
 
         if (existente == null) {
             throw new NoExisteDoctorException(runDoctor);
         }
 
-        // Validar correo duplicado solo si cambió
-        if (!existente.getCorreo().equals(request.getCorreo()) &&
-                doctorRepository.existsByCorreo(request.getCorreo())) {
-            throw new DatoDuplicadoException("El correo " + request.getCorreo() + " ya está registrado");
-        }
+        // Validar correo/teléfono duplicado solo si cambiaron
+        validarDuplicadosActualizacion(existente, request);
 
-        // Validar teléfono duplicado solo si cambió
-        if (!existente.getTelefono().equals(request.getTelefono()) &&
-                doctorRepository.existsByTelefono(request.getTelefono())) {
-            throw new DatoDuplicadoException("El teléfono " + request.getTelefono() + " ya está registrado");
-        }
-
-        // Actualizar datos
+        // Actualizar datos básicos
         existente.setCorreo(request.getCorreo());
         existente.setPriNombre(request.getPriNombre());
         existente.setSegNombre(request.getSegNombre());
@@ -129,15 +120,58 @@ public class DoctorService {
         existente.setApaMaterno(request.getApaMaterno());
         existente.setTelefono(request.getTelefono());
 
-        // Actualizar dirección en MS de direcciones
-        DireccionDTO direccionDTO = new DireccionDTO(request.getDireccion().getNombre(), request.getDireccion().getComunaId());
-        actualizarDireccion(existente.getIdDireccion(), direccionDTO);
+        // Actualizar dirección en MS-DIRECCIONES
+        actualizarDireccionEnMS(existente.getIdDireccion(), request.getDireccion());
 
+        // Guardar, enriquecer y mapear a DTO
         RegistroDoctor guardado = doctorRepository.save(existente);
-        return enriquecerConDireccion(guardado);
+        return mapearADoctorResponse(enriquecerConDireccion(guardado));
     }
 
-// --- MÉTODOS DE COMUNICACIÓN ACTUALIZADOS ---
+    // --- MÉTODOS DE APOYO Y COMUNICACIÓN ---
+
+    private RegistroDoctor enriquecerConDireccion(RegistroDoctor doctor) {
+        if (doctor.getIdDireccion() == null) return doctor;
+        try {
+            DireccionResponse dir = webClientBuilder.build().get()
+                    .uri("http://localhost:8083/api/v1/direcciones/" + doctor.getIdDireccion())
+                    .retrieve()
+                    .bodyToMono(DireccionResponse.class) // TIPADO FUERTE
+                    .block();
+            doctor.setDatosDireccion(dir);
+        } catch (Exception e) {
+            doctor.setDatosDireccion(null);
+        }
+        return doctor;
+    }
+
+    private DireccionResponse crearDireccionEnMS(DireccionRequest direccionReq) {
+        try {
+            return webClientBuilder.build()
+                    .post()
+                    .uri("http://localhost:8083/api/v1/direcciones")
+                    .bodyValue(direccionReq)
+                    .retrieve()
+                    .bodyToMono(DireccionResponse.class) // RECIBIMOS DTO PLANO
+                    .block();
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException("Error al crear dirección en MS-DIRECCIONES", e);
+        }
+    }
+
+    private void actualizarDireccionEnMS(Long idDireccion, DireccionRequest direccionReq) {
+        try {
+            webClientBuilder.build()
+                    .put()
+                    .uri("http://localhost:8083/api/v1/direcciones/" + idDireccion)
+                    .bodyValue(direccionReq)
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .block();
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException("Error al actualizar dirección en MS-DIRECCIONES", e);
+        }
+    }
 
     private void crearLoginUsuario(RegistrarDoctorRequest request) {
         LoginUsuarioRequest login = new LoginUsuarioRequest(
@@ -146,7 +180,6 @@ public class DoctorService {
                 request.getContrasena(),
                 request.getTelefono()
         );
-
         try {
             webClientBuilder.build()
                     .post()
@@ -156,81 +189,55 @@ public class DoctorService {
                     .bodyToMono(Void.class)
                     .block();
         } catch (Exception e) {
-            // Cambio de RuntimeException a ComunicacionMicroservicioException
-            throw new ComunicacionMicroservicioException("Error al comunicarse con MS-LOGIN para registrar credenciales", e);
+            throw new ComunicacionMicroservicioException("Error al registrar credenciales en MS-LOGIN", e);
         }
-    }
-    
-    
-    private RegistroDoctor enriquecerConDireccion(RegistroDoctor doctor) {
-        if (doctor.getIdDireccion() == null) return doctor;
-        try {
-            Object dir = webClientBuilder.build().get()
-                    .uri("http://localhost:8083/api/v1/direcciones/" + doctor.getIdDireccion())
-                    .retrieve()
-                    .bodyToMono(Object.class).block();
-            doctor.setDatosDireccion(dir);
-        } catch (Exception e) {
-            doctor.setDatosDireccion(null);
-            throw new ComunicacionMicroservicioException("Información de dirección no disponible", e);
-        }
-        return doctor;
     }
 
     private void eliminarDireccionEnMS(Long idDireccion) {
         try {
-            webClientBuilder.build()
-                    .delete()
+            webClientBuilder.build().delete()
                     .uri("http://localhost:8083/api/v1/direcciones/" + idDireccion)
-                    .retrieve()
-                    .bodyToMono(Void.class)
-                    .block();
+                    .retrieve().bodyToMono(Void.class).block();
         } catch (Exception e) {
-            // Considera si quieres lanzar excepción o solo loguear
-            throw new ComunicacionMicroservicioException("No se pudo eliminar la dirección asociada al doctor", e);
-        }
-    }
-
-    private Long crearDireccion(DireccionDTO direccionDTO) {
-        try {
-            return webClientBuilder.build()
-                    .post()
-                    .uri("http://localhost:8083/api/v1/direcciones")
-                    .bodyValue(direccionDTO)
-                    .retrieve()
-                    .bodyToMono(Long.class)
-                    .block();
-        } catch (Exception e) {
-            throw new ComunicacionMicroservicioException("Error al comunicarse con MS-DIRECCION para crear la dirección del doctor", e);
-        }
-    }
-
-    private void actualizarDireccion(Long idDireccion, DireccionDTO direccionDTO) {
-        try {
-            webClientBuilder.build()
-                    .put()
-                    .uri("http://localhost:8083/api/v1/direcciones/" + idDireccion)
-                    .bodyValue(direccionDTO)
-                    .retrieve()
-                    .bodyToMono(Void.class)
-                    .block();
-        } catch (Exception e) {
-            throw new ComunicacionMicroservicioException("Error al comunicarse con MS-DIRECCION para actualizar la dirección del doctor", e);
+            System.err.println("Error eliminando dirección: " + e.getMessage());
         }
     }
 
     private void eliminarDatosCalendarioEnMS(String runDoctor) {
         try {
-            webClientBuilder.build()
-                    .delete()
+            webClientBuilder.build().delete()
                     .uri("http://localhost:8086/api/v1/calendario/agenda/doctor/" + runDoctor)
-                    .retrieve()
-                    .bodyToMono(Void.class)
-                    .block();
+                    .retrieve().bodyToMono(Void.class).block();
         } catch (Exception e) {
-            // En microservicios, decides si esto debe detener el borrado o solo loguear un error
-            throw new ComunicacionMicroservicioException("No se pudo limpiar la agenda del doctor en MS-CALENDARIO", e);
+            System.err.println("Error eliminando agenda: " + e.getMessage());
         }
     }
 
+    private DoctorResponse mapearADoctorResponse(RegistroDoctor doctor) {
+        DoctorResponse res = new DoctorResponse();
+        res.setRunDoctor(doctor.getRunDoctor());
+        res.setCorreo(doctor.getCorreo());
+        res.setTelefono(doctor.getTelefono());
+        
+        // Construcción del nombre completo
+        String nombreCompleto = doctor.getPriNombre() + 
+                                (doctor.getSegNombre() != null ? " " + doctor.getSegNombre() : "") + 
+                                " " + doctor.getApaPaterno() + 
+                                " " + doctor.getApaMaterno();
+        res.setNombreCompleto(nombreCompleto);
+
+        // Pasamos la dirección que ya fue enriquecida por el método enriquecerConDireccion
+        res.setDireccion(doctor.getDatosDireccion()); 
+        
+        return res;
+    }
+
+    private void validarDuplicadosActualizacion(RegistroDoctor existente, ActualizarDoctorRequest request) {
+        if (!existente.getCorreo().equals(request.getCorreo()) && doctorRepository.existsByCorreo(request.getCorreo())) {
+            throw new DatoDuplicadoException("El correo " + request.getCorreo() + " ya está registrado");
+        }
+        if (!existente.getTelefono().equals(request.getTelefono()) && doctorRepository.existsByTelefono(request.getTelefono())) {
+            throw new DatoDuplicadoException("El teléfono " + request.getTelefono() + " ya está registrado");
+        }
+    }
 }

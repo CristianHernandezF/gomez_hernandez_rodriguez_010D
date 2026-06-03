@@ -3,6 +3,7 @@ package com.nubemedica.service_registrodoctor.model;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.nubemedica.service_registrodoctor.dto.DireccionResponse;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -51,7 +52,7 @@ public class RegistroDoctor {
 
     // Se usa para traer datos de la dirección desde MS4 sin acoplar tablas
     @Transient
-    private Object datosDireccion; 
+    private DireccionResponse datosDireccion; 
 
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore // Importante para evitar bucles infinitos en el JSON

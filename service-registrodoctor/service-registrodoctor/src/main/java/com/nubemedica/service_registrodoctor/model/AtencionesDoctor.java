@@ -1,7 +1,7 @@
 package com.nubemedica.service_registrodoctor.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.nubemedica.service_registrodoctor.dto.PacienteResumenDTO;
+import com.nubemedica.service_registrodoctor.dto.PacienteResumen;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -39,7 +39,7 @@ public class AtencionesDoctor {
     @JoinColumn(name = "run_doctor")
     private RegistroDoctor doctor;
 
-    // NUEVO: Campo para mostrar datos del paciente sin persistir en DB
+    // Campo para mostrar datos del paciente sin persistir en DB
     @Transient
-    private PacienteResumenDTO datosPaciente; 
+    private PacienteResumen datosPaciente; 
 }

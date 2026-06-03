@@ -1,75 +1,90 @@
 package com.hospital.service_direccion.service;
 
-import java.util.List;
-
+import com.hospital.service_direccion.dto.DireccionRequest;
+import com.hospital.service_direccion.dto.DireccionResponse;
+import com.hospital.service_direccion.model.*;
+import com.hospital.service_direccion.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.hospital.service_direccion.dto.DireccionDTO;
-import com.hospital.service_direccion.model.Comuna;
-import com.hospital.service_direccion.model.Direccion;
-import com.hospital.service_direccion.repository.ComunaRepository;
-import com.hospital.service_direccion.repository.DireccionRepository;
-
-import jakarta.transaction.Transactional;
-
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class DireccionService {
-        @Autowired
-        private DireccionRepository direccionRepository;
-        @Autowired
-        private ComunaRepository comunaRepository;
 
+    @Autowired
+    private DireccionRepository direccionRepository;
+    @Autowired
+    private ComunaRepository comunaRepository;
+    @Autowired
+    private RegionRepository regionRepository;
 
-
-        public List<Direccion> listarTodos(){
-            return direccionRepository.findAll();
-        }
-
-        @Transactional
-        public Direccion obtenerPorId(Long id) {
-                return direccionRepository.findById(id)
-                                          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Dirección no Existe"));
+    public List<DireccionResponse> listarTodos() {
+        return direccionRepository.findAll().stream()
+                .map(this::mapearADTO)
+                .collect(Collectors.toList());
     }
 
-        public Direccion creaDireccion(DireccionDTO direccionDTO){
+    @Transactional(readOnly = true)
+    public DireccionResponse obtenerPorId(Long id) {
+        Direccion dir = direccionRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dirección no Existe"));
+        return mapearADTO(dir);
+    }
 
-            Long comunaId = direccionDTO.getComunaId();
+    @Transactional
+    public DireccionResponse crearDireccion(DireccionRequest dto) {
+        // 1. Buscar Región por nombre
+        Region region = regionRepository.findByNombre(dto.getRegion())
+                .orElseThrow(() -> new RuntimeException("Región no encontrada: " + dto.getRegion()));
 
-            Comuna comuna = comunaRepository.findById(comunaId)
-                            .orElseThrow(() -> new RuntimeException("Comuna no encontrada"));
-            
-            Direccion direccion = new Direccion();
-            
-            direccion.setComuna(comuna);
-            direccion.setNombre(direccionDTO.getNombre());
-            return direccionRepository.save(direccion);
-            
+        // 2. Buscar Comuna por nombre dentro de esa región
+        Comuna comuna = comunaRepository.findByNombreAndRegion(dto.getComuna(), region)
+                .orElseThrow(() -> new RuntimeException("Comuna no encontrada en esa región"));
+
+        Direccion direccion = new Direccion();
+        direccion.setNombre(dto.getNombre());
+        direccion.setComuna(comuna);
+
+        return mapearADTO(direccionRepository.save(direccion));
+    }
+
+    @Transactional
+    public void actualizarDireccion(Long id, DireccionRequest dto) {
+        Direccion existente = direccionRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dirección no encontrada"));
+
+        Region region = regionRepository.findByNombre(dto.getRegion())
+                .orElseThrow(() -> new RuntimeException("Región no encontrada"));
+
+        Comuna comuna = comunaRepository.findByNombreAndRegion(dto.getComuna(), region)
+                .orElseThrow(() -> new RuntimeException("Comuna no encontrada"));
+
+        existente.setNombre(dto.getNombre());
+        existente.setComuna(comuna);
+
+        direccionRepository.save(existente);
+    }
+
+    @Transactional
+    public void eliminarDireccion(Long id) {
+        if (!direccionRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Dirección no encontrada");
         }
+        direccionRepository.deleteById(id);
+    }
 
-        @Transactional
-        public void actualizarDireccion(Long id, DireccionDTO direccionDTO) {
-            Direccion direccionExistente = direccionRepository.findById(id)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dirección no encontrada"));
-
-            Long comunaId = direccionDTO.getComunaId();
-            Comuna comuna = comunaRepository.findById(comunaId)
-                    .orElseThrow(() -> new RuntimeException("Comuna no encontrada"));
-
-            direccionExistente.setComuna(comuna);
-            direccionExistente.setNombre(direccionDTO.getNombre());
-
-            direccionRepository.save(direccionExistente);
-        }
-
-        @Transactional
-        public void eliminarDireccion(Long id) {
-            if (!direccionRepository.existsById(id)) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Dirección no encontrada");
-            }
-            direccionRepository.deleteById(id);
-        }
+    // Método de apoyo para convertir Entidad compleja a DTO Plano
+    private DireccionResponse mapearADTO(Direccion dir) {
+        return DireccionResponse.builder()
+                .idDireccion(dir.getId())
+                .nombre(dir.getNombre())
+                .comuna(dir.getComuna().getNombre())
+                .region(dir.getComuna().getRegion().getNombre())
+                .build();
+    }
 }
