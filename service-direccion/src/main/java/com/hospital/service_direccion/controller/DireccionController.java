@@ -34,10 +34,10 @@ public class DireccionController {
         }
 
         @PostMapping
-        public Long crear(@RequestBody DireccionRequest direccionRequest){
+        public DireccionResponse crear(@RequestBody DireccionRequest direccionRequest){
             
             DireccionResponse nuevaDireccion = direccionService.crearDireccion(direccionRequest);
-            return nuevaDireccion.getIdDireccion();
+            return nuevaDireccion;
         }
 
         @PutMapping("/{id}")

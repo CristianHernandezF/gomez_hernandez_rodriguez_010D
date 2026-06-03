@@ -49,8 +49,9 @@ public class DireccionService {
         Direccion direccion = new Direccion();
         direccion.setNombre(dto.getNombre());
         direccion.setComuna(comuna);
-
-        return mapearADTO(direccionRepository.save(direccion));
+        direccionRepository.save(direccion);
+        
+        return mapearADTO(direccion);
     }
 
     @Transactional
