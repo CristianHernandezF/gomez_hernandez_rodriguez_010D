@@ -22,12 +22,12 @@ public class FarmacosRecetados {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idFarmaco;
 
-    private String nomFarmaco;
+    private String nombreFarmaco;
 
     private float dosis;
 
     @ManyToOne
     @JoinColumn(name = "fichamedica_id")
-    private Long idFichaMedica;
+    private FichaMedica fichaMedica;
 
 }
