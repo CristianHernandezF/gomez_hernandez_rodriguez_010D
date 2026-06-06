@@ -2,6 +2,8 @@ package com.nubemedica.service_fichamedica.controller;
 
 import com.nubemedica.service_fichamedica.dto.FichaMedicaResponse;
 import com.nubemedica.service_fichamedica.dto.FichaMedicaUpdateRequest;
+import com.nubemedica.service_fichamedica.dto.ReporteCreateRequest;
+import com.nubemedica.service_fichamedica.dto.ReporteDTO;
 import com.nubemedica.service_fichamedica.service.FichaMedicaService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,4 +93,19 @@ public class FichaMedicaController {
         fichaMedicaService.eliminarFicha(id);
         return ResponseEntity.noContent().build();
     }
+
+    // =====================================================================
+    // POST /api/v1/fichas/{idFicha}/reportes   ← NUEVO
+    // Crea un reporte asociado a esta ficha (llama internamente a ms-reportes)
+    // =====================================================================
+    @PostMapping("/{idFicha}/reportes")
+    public ResponseEntity<ReporteDTO> agregarReporte(
+            @PathVariable Long idFicha,
+            @Valid @RequestBody ReporteCreateRequest request) {
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(fichaMedicaService.agregarReporte(idFicha, request));
+    }
+    
 }

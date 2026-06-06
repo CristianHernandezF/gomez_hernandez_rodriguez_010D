@@ -114,7 +114,6 @@ public class FichaMedicaService {
         ficha.setHistorialFamiliar(request.getHistorialFamiliar());
         ficha.setDiagnostico(request.getHipotesisDiagnostica());
 
-        // Reemplazar contactos profesionales
         if (request.getContactosProfesionales() != null) {
             ficha.getContactoPro().clear();
             request.getContactosProfesionales().forEach(dto -> {
@@ -127,7 +126,6 @@ public class FichaMedicaService {
             });
         }
 
-        // Reemplazar teléfonos de emergencia — solo numTelefono y descripcion
         if (request.getTelefonosEmergencia() != null) {
             ficha.getTelefonos().clear();
             request.getTelefonosEmergencia().forEach(dto -> {
@@ -139,7 +137,6 @@ public class FichaMedicaService {
             });
         }
 
-        // Reemplazar fármacos recetados
         if (request.getFarmacos() != null) {
             ficha.getFarmacos().clear();
             request.getFarmacos().forEach(dto -> {
@@ -170,6 +167,34 @@ public class FichaMedicaService {
     }
 
     // =====================================================================
+    // AGREGAR REPORTE A UNA FICHA (llama a ms-reportes via WebClient)
+    // =====================================================================
+    @Transactional
+    public ReporteDTO agregarReporte(Long idFicha, ReporteCreateRequest request) {
+        if (!fichaMedicaRepository.existsById(idFicha))
+            throw new RecursoNoEncontradoException(
+                "No se encontró la ficha médica con ID: " + idFicha);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("nombreReporte", request.getNombreReporte());
+        body.put("idFichaMedica", idFicha);
+        body.put("descripcion", request.getDescripcion());
+
+        try {
+            return webClientBuilder.build()
+                .post()
+                .uri(urlMsReportes)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(ReporteDTO.class)
+                .block();
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException(
+                "Error al crear reporte en ms-reportes: " + e.getMessage(), e);
+        }
+    }
+
+    // =====================================================================
     // MÉTODOS PRIVADOS
     // =====================================================================
 
@@ -186,10 +211,22 @@ public class FichaMedicaService {
                 "No se encontró el paciente con RUN: " + runPaciente
             );
         } catch (Exception e) {
-            // Se pasa e como causa (Throwable) — el constructor requiere (String, Throwable)
             throw new ComunicacionMicroservicioException(
                 "Error al comunicarse con el microservicio de pacientes: " + e.getMessage(), e
             );
+        }
+    }
+
+    private List<ReporteDTO> obtenerReportesDeFicha(Long idFicha) {
+        try {
+            return webClientBuilder.build()
+                .get()
+                .uri(urlMsReportes + "/ficha/" + idFicha)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<ReporteDTO>>() {})
+                .block();
+        } catch (Exception e) {
+            return Collections.emptyList();
         }
     }
 
@@ -239,53 +276,7 @@ public class FichaMedicaService {
             .contactos(contactosDto)
             .telefonos(telefonosDto)
             .farmacos(farmacosDto)
+            .reportes(obtenerReportesDeFicha(ficha.getIdFichaMedica()))  // ← CORRECCIÓN
             .build();
-    }
-
-    // =====================================================================
-    // AGREGAR REPORTE A UNA FICHA (llama a ms-reportes via WebClient)
-    // =====================================================================
-    @Transactional
-    public ReporteDTO agregarReporte(Long idFicha, ReporteCreateRequest request) {
-
-        if (!fichaMedicaRepository.existsById(idFicha))
-            throw new RecursoNoEncontradoException(
-                "No se encontró la ficha médica con ID: " + idFicha);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("nombreReporte", request.getNombreReporte());
-        body.put("idFichaMedica", idFicha);
-        body.put("descripcion", request.getDescripcion());
-
-        try {
-            return webClientBuilder.build()
-                .post()
-                .uri(urlMsReportes)
-                .bodyValue(body)
-                .retrieve()
-                .bodyToMono(ReporteDTO.class)
-                .block();
-        } catch (Exception e) {
-            throw new ComunicacionMicroservicioException(
-                "Error al crear reporte en ms-reportes: " + e.getMessage(), e);
-        }
-    }
-
-    // =====================================================================
-    // OBTENER REPORTES DE UNA FICHA (llamado internamente desde mapearAResponse)
-    // =====================================================================
-    private List<ReporteDTO> obtenerReportesDeFicha(Long idFicha) {
-        try {
-            return webClientBuilder.build()
-                .get()
-                .uri(urlMsReportes + "/ficha/" + idFicha)
-                .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<List<ReporteDTO>>() {})
-                .block();
-        } catch (Exception e) {
-            // Si ms-reportes no responde, devuelve lista vacía
-            // para no romper la consulta de la ficha
-            return Collections.emptyList();
-        }
     }
 }
