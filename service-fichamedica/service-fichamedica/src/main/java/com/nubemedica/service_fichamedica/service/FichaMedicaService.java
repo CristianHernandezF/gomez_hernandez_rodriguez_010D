@@ -1,14 +1,12 @@
 package com.nubemedica.service_fichamedica.service;
 
-import com.nubemedica.service_fichamedica.dto.*;
-import com.nubemedica.service_fichamedica.exceptions.ComunicacionMicroservicioException;
-import com.nubemedica.service_fichamedica.exceptions.DatoDuplicadoException;
-import com.nubemedica.service_fichamedica.exceptions.RecursoNoEncontradoException;
-import com.nubemedica.service_fichamedica.model.ContactoProfesional;
-import com.nubemedica.service_fichamedica.model.FarmacosRecetados;
-import com.nubemedica.service_fichamedica.model.FichaMedica;
-import com.nubemedica.service_fichamedica.model.TelefonoEmergencia;
-import com.nubemedica.service_fichamedica.repository.FichaMedicaRepository;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -17,12 +15,22 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import com.nubemedica.service_fichamedica.dto.ContactoProfesionalDTO;
+import com.nubemedica.service_fichamedica.dto.FarmacosRecetadosDTO;
+import com.nubemedica.service_fichamedica.dto.FichaMedicaResponse;
+import com.nubemedica.service_fichamedica.dto.FichaMedicaUpdateRequest;
+import com.nubemedica.service_fichamedica.dto.PacienteDTO;
+import com.nubemedica.service_fichamedica.dto.ReporteCreateRequest;
+import com.nubemedica.service_fichamedica.dto.ReporteDTO;
+import com.nubemedica.service_fichamedica.dto.TelefonoEmergenciaDTO;
+import com.nubemedica.service_fichamedica.exceptions.ComunicacionMicroservicioException;
+import com.nubemedica.service_fichamedica.exceptions.DatoDuplicadoException;
+import com.nubemedica.service_fichamedica.exceptions.RecursoNoEncontradoException;
+import com.nubemedica.service_fichamedica.model.ContactoProfesional;
+import com.nubemedica.service_fichamedica.model.FarmacosRecetados;
+import com.nubemedica.service_fichamedica.model.FichaMedica;
+import com.nubemedica.service_fichamedica.model.TelefonoEmergencia;
+import com.nubemedica.service_fichamedica.repository.FichaMedicaRepository;
 
 @Service
 public class FichaMedicaService {
@@ -36,7 +44,7 @@ public class FichaMedicaService {
     @Value("${microservicio.pacientes.url:http://localhost:8081/api/v1/pacientes}")
     private String urlMsPacientes;
 
-    @Value("${ms.reportes.url}")
+    @Value("${ms.reportes.url:http://localhost:8088/api/v1/reportes}")
     private String urlMsReportes;
 
     // =====================================================================
@@ -114,6 +122,7 @@ public class FichaMedicaService {
         ficha.setHistorialFamiliar(request.getHistorialFamiliar());
         ficha.setDiagnostico(request.getHipotesisDiagnostica());
 
+        // Actualizar Contactos Profesionales
         if (request.getContactosProfesionales() != null) {
             ficha.getContactoPro().clear();
             request.getContactosProfesionales().forEach(dto -> {
@@ -126,6 +135,7 @@ public class FichaMedicaService {
             });
         }
 
+        // Actualizar Teléfonos de Emergencia
         if (request.getTelefonosEmergencia() != null) {
             ficha.getTelefonos().clear();
             request.getTelefonosEmergencia().forEach(dto -> {
@@ -137,6 +147,7 @@ public class FichaMedicaService {
             });
         }
 
+        // Actualizar Fármacos
         if (request.getFarmacos() != null) {
             ficha.getFarmacos().clear();
             request.getFarmacos().forEach(dto -> {
@@ -167,7 +178,7 @@ public class FichaMedicaService {
     }
 
     // =====================================================================
-    // AGREGAR REPORTE A UNA FICHA (llama a ms-reportes via WebClient)
+    // AGREGAR REPORTE A UNA FICHA
     // =====================================================================
     @Transactional
     public ReporteDTO agregarReporte(Long idFicha, ReporteCreateRequest request) {
@@ -232,39 +243,36 @@ public class FichaMedicaService {
 
     private FichaMedicaResponse mapearAResponse(FichaMedica ficha, PacienteDTO paciente) {
 
-        List<com.nubemedica.service_fichamedica.dto.ContactoProfesional> contactosDto =
-            ficha.getContactoPro() != null
-                ? ficha.getContactoPro().stream().map(cp -> {
-                    com.nubemedica.service_fichamedica.dto.ContactoProfesional dto =
-                        new com.nubemedica.service_fichamedica.dto.ContactoProfesional();
-                    dto.setNombres(cp.getNombres());
-                    dto.setApellidos(cp.getApellidos());
-                    dto.setCorreo(cp.getCorreo());
-                    return dto;
-                }).collect(Collectors.toList())
-                : new ArrayList<>();
+        // Mapeo de Contactos
+        List<ContactoProfesionalDTO> contactosDto = ficha.getContactoPro() != null
+            ? ficha.getContactoPro().stream().map(cp -> {
+                ContactoProfesionalDTO dto = new ContactoProfesionalDTO();
+                dto.setNombres(cp.getNombres());
+                dto.setApellidos(cp.getApellidos());
+                dto.setCorreo(cp.getCorreo());
+                return dto;
+            }).collect(Collectors.toList())
+            : new ArrayList<>();
 
-        List<com.nubemedica.service_fichamedica.dto.TelefonoEmergencia> telefonosDto =
-            ficha.getTelefonos() != null
-                ? ficha.getTelefonos().stream().map(te -> {
-                    com.nubemedica.service_fichamedica.dto.TelefonoEmergencia dto =
-                        new com.nubemedica.service_fichamedica.dto.TelefonoEmergencia();
-                    dto.setNumTelefono(te.getNumTelefono());
-                    dto.setDescripcion(te.getDescripcion());
-                    return dto;
-                }).collect(Collectors.toList())
-                : new ArrayList<>();
+        // Mapeo de Teléfonos
+        List<TelefonoEmergenciaDTO> telefonosDto = ficha.getTelefonos() != null
+            ? ficha.getTelefonos().stream().map(te -> {
+                TelefonoEmergenciaDTO dto = new TelefonoEmergenciaDTO();
+                dto.setNumTelefono(te.getNumTelefono());
+                dto.setDescripcion(te.getDescripcion());
+                return dto;
+            }).collect(Collectors.toList())
+            : new ArrayList<>();
 
-        List<com.nubemedica.service_fichamedica.dto.FarmacosRecetados> farmacosDto =
-            ficha.getFarmacos() != null
-                ? ficha.getFarmacos().stream().map(fr -> {
-                    com.nubemedica.service_fichamedica.dto.FarmacosRecetados dto =
-                        new com.nubemedica.service_fichamedica.dto.FarmacosRecetados();
-                    dto.setNombreFarmaco(fr.getNombreFarmaco());
-                    dto.setDosis(fr.getDosis());
-                    return dto;
-                }).collect(Collectors.toList())
-                : new ArrayList<>();
+        // Mapeo de Fármacos
+        List<FarmacosRecetadosDTO> farmacosDto = ficha.getFarmacos() != null
+            ? ficha.getFarmacos().stream().map(fr -> {
+                FarmacosRecetadosDTO dto = new FarmacosRecetadosDTO();
+                dto.setNombreFarmaco(fr.getNombreFarmaco());
+                dto.setDosis(fr.getDosis());
+                return dto;
+            }).collect(Collectors.toList())
+            : new ArrayList<>();
 
         return FichaMedicaResponse.builder()
             .idFichaMedica(ficha.getIdFichaMedica())
@@ -276,7 +284,7 @@ public class FichaMedicaService {
             .contactos(contactosDto)
             .telefonos(telefonosDto)
             .farmacos(farmacosDto)
-            .reportes(obtenerReportesDeFicha(ficha.getIdFichaMedica()))  // ← CORRECCIÓN
+            .reportes(obtenerReportesDeFicha(ficha.getIdFichaMedica()))
             .build();
     }
 }

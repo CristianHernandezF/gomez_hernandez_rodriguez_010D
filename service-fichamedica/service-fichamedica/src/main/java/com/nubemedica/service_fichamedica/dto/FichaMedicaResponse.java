@@ -16,9 +16,9 @@ public class FichaMedicaResponse {
 
     private PacienteDTO datosPaciente;
 
-    private List<ContactoProfesional> contactos;
-    private List<TelefonoEmergencia> telefonos;
-    private List<FarmacosRecetados> farmacos;
+    private List<ContactoProfesionalDTO> contactos;
+    private List<TelefonoEmergenciaDTO> telefonos;
+    private List<FarmacosRecetadosDTO> farmacos;
 
     // NUEVO — reportes cargados desde ms-reportes via WebClient
     private List<ReporteDTO> reportes;
