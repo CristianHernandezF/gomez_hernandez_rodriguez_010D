@@ -4,6 +4,7 @@ import com.nubemedica.service_fichamedica.dto.FichaMedicaResponse;
 import com.nubemedica.service_fichamedica.dto.FichaMedicaUpdateRequest;
 import com.nubemedica.service_fichamedica.dto.ReporteCreateRequest;
 import com.nubemedica.service_fichamedica.dto.ReporteDTO;
+import com.nubemedica.service_fichamedica.dto.ReporteUpdateRequest;
 import com.nubemedica.service_fichamedica.service.FichaMedicaService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,92 +21,114 @@ public class FichaMedicaController {
     @Autowired
     private FichaMedicaService fichaMedicaService;
 
-    // =====================================================================
-    // POST /api/v1/fichas?runPaciente=XX&runDoctor=YY
-    // Crea una ficha médica vacía para el par paciente-doctor
-    // =====================================================================
+    // POST /api/v1/fichas?runPaciente=XX
     @PostMapping
     public ResponseEntity<FichaMedicaResponse> crearFicha(
             @RequestParam String runPaciente,
-            @RequestParam String runDoctor) {
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
 
-        FichaMedicaResponse response = fichaMedicaService.crearFicha(runPaciente, runDoctor);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(fichaMedicaService.crearFicha(runPaciente, runDoctorToken));
     }
 
-    // =====================================================================
-    // GET /api/v1/fichas/{id}
-    // Obtiene una ficha médica por su ID
-    // =====================================================================
-    @GetMapping("/{id}")
-    public ResponseEntity<FichaMedicaResponse> obtenerFichaPorId(@PathVariable Long id) {
-
-        FichaMedicaResponse response = fichaMedicaService.obtenerFichaPorId(id);
-        return ResponseEntity.ok(response);
-    }
-
-    // =====================================================================
-    // GET /api/v1/fichas/buscar?runPaciente=XX&runDoctor=YY
-    // Busca la ficha específica de un paciente con un doctor
-    // =====================================================================
-    @GetMapping("/buscar")
-    public ResponseEntity<FichaMedicaResponse> obtenerFichaPorPacienteYDoctor(
+    @PostMapping("/interno")
+    public ResponseEntity<Void> crearFichaInterno(
             @RequestParam String runPaciente,
             @RequestParam String runDoctor) {
 
-        FichaMedicaResponse response = fichaMedicaService
-                .obtenerFichaPorPacienteYDoctor(runPaciente, runDoctor);
-        return ResponseEntity.ok(response);
+        fichaMedicaService.crearFichaInterno(runPaciente, runDoctor);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    // =====================================================================
-    // GET /api/v1/fichas/doctor/{runDoctor}
-    // Lista todas las fichas que tiene un doctor
-    // =====================================================================
-    @GetMapping("/doctor/{runDoctor}")
+    // GET /api/v1/fichas/{id}
+    @GetMapping("/{id}")
+    public ResponseEntity<FichaMedicaResponse> obtenerFichaPorId(
+            @PathVariable Long id,
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+
+        return ResponseEntity.ok(fichaMedicaService.obtenerFichaPorId(id, runDoctorToken));
+    }
+
+    // GET /api/v1/fichas/buscar?runPaciente=XX
+    @GetMapping("/buscar")
+    public ResponseEntity<FichaMedicaResponse> obtenerFichaPorPacienteYDoctor(
+            @RequestParam String runPaciente,
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+
+        return ResponseEntity.ok(fichaMedicaService
+                .obtenerFichaPorPacienteYDoctor(runPaciente, runDoctorToken)); 
+    }
+
+    // GET /api/v1/fichas/doctor
+    @GetMapping("/doctor")
     public ResponseEntity<List<FichaMedicaResponse>> listarFichasPorDoctor(
-            @PathVariable String runDoctor) {
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
 
-        List<FichaMedicaResponse> response = fichaMedicaService.listarFichasPorDoctor(runDoctor);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(fichaMedicaService.listarFichasPorDoctor(runDoctorToken));
     }
 
-    // =====================================================================
     // PUT /api/v1/fichas/{id}
-    // Actualiza diagnóstico, historial, fármacos, contactos y teléfonos
-    // =====================================================================
     @PutMapping("/{id}")
     public ResponseEntity<FichaMedicaResponse> actualizarFicha(
             @PathVariable Long id,
-            @Valid @RequestBody FichaMedicaUpdateRequest request) {
+            @Valid @RequestBody FichaMedicaUpdateRequest request,
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
 
-        FichaMedicaResponse response = fichaMedicaService.actualizarFicha(id, request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(fichaMedicaService.actualizarFicha(id, request, runDoctorToken));
     }
 
-    // =====================================================================
     // DELETE /api/v1/fichas/{id}
-    // Elimina una ficha médica por su ID
-    // =====================================================================
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarFicha(@PathVariable Long id) {
+    public ResponseEntity<Void> eliminarFicha(
+            @PathVariable Long id,
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
 
-        fichaMedicaService.eliminarFicha(id);
+        fichaMedicaService.eliminarFicha(id, runDoctorToken);
         return ResponseEntity.noContent().build();
     }
 
-    // =====================================================================
-    // POST /api/v1/fichas/{idFicha}/reportes   ← NUEVO
-    // Crea un reporte asociado a esta ficha (llama internamente a ms-reportes)
-    // =====================================================================
+    // POST /api/v1/fichas/{idFicha}/reportes
     @PostMapping("/{idFicha}/reportes")
     public ResponseEntity<ReporteDTO> agregarReporte(
             @PathVariable Long idFicha,
-            @Valid @RequestBody ReporteCreateRequest request) {
+            @Valid @RequestBody ReporteCreateRequest request,
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(fichaMedicaService.agregarReporte(idFicha, request));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(fichaMedicaService.agregarReporte(idFicha, request, runDoctorToken));
     }
-    
+
+    // GET /api/v1/fichas/{idFicha}/reportes/{idReporte}
+    @GetMapping("/{idFicha}/reportes/{idReporte}")
+    public ResponseEntity<ReporteDTO> obtenerReporte(
+            @PathVariable Long idFicha,
+            @PathVariable Long idReporte,
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+
+        return ResponseEntity.ok(fichaMedicaService
+                .obtenerReporteDeFicha(idFicha, idReporte, runDoctorToken));
+    }
+
+    // PUT /api/v1/fichas/{idFicha}/reportes/{idReporte}
+    @PutMapping("/{idFicha}/reportes/{idReporte}")
+    public ResponseEntity<ReporteDTO> editarReporte(
+            @PathVariable Long idFicha,
+            @PathVariable Long idReporte,
+            @Valid @RequestBody ReporteUpdateRequest request,
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+
+        return ResponseEntity.ok(fichaMedicaService
+                .editarReporteDeFicha(idFicha, idReporte, request, runDoctorToken));
+    }
+
+    // DELETE /api/v1/fichas/{idFicha}/reportes/{idReporte}
+    @DeleteMapping("/{idFicha}/reportes/{idReporte}")
+    public ResponseEntity<Void> eliminarReporte(
+            @PathVariable Long idFicha,
+            @PathVariable Long idReporte,
+            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+
+        fichaMedicaService.eliminarReporteDeFicha(idFicha, idReporte, runDoctorToken);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -64,5 +64,20 @@ spring:
             - Path=/api/v1/estadocita/**
           filters:
             - AuthenticationFilter
+        # SERVICIO DE FICHA MÉDICA (Protegido)
+        - id: service-fichamedica
+          uri: http://localhost:8088
+          predicates:
+            - Path=/api/v1/fichas/**
+          filters:
+            - AuthenticationFilter
 
+        # SERVICIO DE REPORTES (Protegido - solo acceso interno desde fichamedica)
+        - id: service-reportes
+          uri: http://localhost:8089
+          predicates:
+            - Path=/api/v1/reportes/**
+          filters:
+            - AuthenticationFilter
+            
 jwt.secret: "39b45678a1b2c3d4e5f678901234567890abcdef1234567890abcdef12345678"

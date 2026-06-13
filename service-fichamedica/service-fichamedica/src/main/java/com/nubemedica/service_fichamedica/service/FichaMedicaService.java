@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -22,7 +23,9 @@ import com.nubemedica.service_fichamedica.dto.FichaMedicaUpdateRequest;
 import com.nubemedica.service_fichamedica.dto.PacienteDTO;
 import com.nubemedica.service_fichamedica.dto.ReporteCreateRequest;
 import com.nubemedica.service_fichamedica.dto.ReporteDTO;
+import com.nubemedica.service_fichamedica.dto.ReporteUpdateRequest;
 import com.nubemedica.service_fichamedica.dto.TelefonoEmergenciaDTO;
+import com.nubemedica.service_fichamedica.exceptions.AccesoDenegadoException;
 import com.nubemedica.service_fichamedica.exceptions.ComunicacionMicroservicioException;
 import com.nubemedica.service_fichamedica.exceptions.DatoDuplicadoException;
 import com.nubemedica.service_fichamedica.exceptions.RecursoNoEncontradoException;
@@ -47,49 +50,72 @@ public class FichaMedicaService {
     @Value("${ms.reportes.url:http://localhost:8088/api/v1/reportes}")
     private String urlMsReportes;
 
+    @Value("${ms.doctores.url:http://localhost:8085/api/v1/atenciones}")
+    private String urlMsDoctores;
+
     // =====================================================================
     // CREAR FICHA MÉDICA
     // =====================================================================
     @Transactional
-    public FichaMedicaResponse crearFicha(String runPaciente, String runDoctor) {
-        if (fichaMedicaRepository.existsByRunPacienteAndRunDoctor(runPaciente, runDoctor)) {
+    public FichaMedicaResponse crearFicha(String runPaciente, String runDoctorToken) {
+        validarRelacionDoctorPaciente(runDoctorToken, runPaciente);
+
+        if (fichaMedicaRepository.existsByRunPacienteAndRunDoctor(runPaciente, runDoctorToken)) {
             throw new DatoDuplicadoException(
-                "Ya existe una ficha médica para el paciente " + runPaciente + " con el doctor " + runDoctor
+                "Ya existe una ficha médica para el paciente " + runPaciente +
+                " con el doctor " + runDoctorToken
             );
         }
 
         FichaMedica nuevaFicha = new FichaMedica();
         nuevaFicha.setRunPaciente(runPaciente);
-        nuevaFicha.setRunDoctor(runDoctor);
+        nuevaFicha.setRunDoctor(runDoctorToken);
 
         FichaMedica guardada = fichaMedicaRepository.save(nuevaFicha);
         PacienteDTO paciente = obtenerDatosPaciente(runPaciente);
         return mapearAResponse(guardada, paciente);
     }
 
-    // =====================================================================
+    // CREAR FICHA INTERNA (llamada desde service-registropacientes)
+    // Sin validación de relación — la relación acaba de ser creada
+    // Si ya existe la ficha para este par, ignora 
+    @Transactional
+    public void crearFichaInterno(String runPaciente, String runDoctor) {
+        if (fichaMedicaRepository.existsByRunPacienteAndRunDoctor(runPaciente, runDoctor)) {
+            return; // Ya existe, no hace nada
+        }
+
+        FichaMedica nuevaFicha = new FichaMedica();
+        nuevaFicha.setRunPaciente(runPaciente);
+        nuevaFicha.setRunDoctor(runDoctor);
+        fichaMedicaRepository.save(nuevaFicha);
+    }
+
+
     // OBTENER FICHA POR ID
-    // =====================================================================
     @Transactional(readOnly = true)
-    public FichaMedicaResponse obtenerFichaPorId(Long idFicha) {
+    public FichaMedicaResponse obtenerFichaPorId(Long idFicha, String runDoctorToken) {
         FichaMedica ficha = fichaMedicaRepository.findById(idFicha)
             .orElseThrow(() -> new RecursoNoEncontradoException(
                 "No se encontró la ficha médica con ID: " + idFicha
             ));
 
+        validarRelacionDoctorPaciente(runDoctorToken, ficha.getRunPaciente());
+
         PacienteDTO paciente = obtenerDatosPaciente(ficha.getRunPaciente());
         return mapearAResponse(ficha, paciente);
     }
 
-    // =====================================================================
-    // OBTENER FICHA POR RUN PACIENTE + RUN DOCTOR
-    // =====================================================================
+    // OBTENER FICHA POR RUN PACIENTE (del token se obtiene el doctor)
     @Transactional(readOnly = true)
-    public FichaMedicaResponse obtenerFichaPorPacienteYDoctor(String runPaciente, String runDoctor) {
+    public FichaMedicaResponse obtenerFichaPorPacienteYDoctor(String runPaciente, String runDoctorToken) {
+        validarRelacionDoctorPaciente(runDoctorToken, runPaciente);
+
         FichaMedica ficha = fichaMedicaRepository
-            .findByRunPacienteAndRunDoctor(runPaciente, runDoctor)
+            .findByRunPacienteAndRunDoctor(runPaciente, runDoctorToken)
             .orElseThrow(() -> new RecursoNoEncontradoException(
-                "No existe ficha para el paciente " + runPaciente + " con el doctor " + runDoctor
+                "No existe ficha para el paciente " + runPaciente +
+                " con el doctor " + runDoctorToken
             ));
 
         PacienteDTO paciente = obtenerDatosPaciente(runPaciente);
@@ -97,32 +123,30 @@ public class FichaMedicaService {
     }
 
     // =====================================================================
-    // LISTAR TODAS LAS FICHAS DE UN DOCTOR
+    // LISTAR TODAS LAS FICHAS DEL DOCTOR AUTENTICADO
     // =====================================================================
     @Transactional(readOnly = true)
-    public List<FichaMedicaResponse> listarFichasPorDoctor(String runDoctor) {
-        return fichaMedicaRepository.findByRunDoctor(runDoctor).stream()
+    public List<FichaMedicaResponse> listarFichasPorDoctor(String runDoctorToken) {
+        return fichaMedicaRepository.findByRunDoctor(runDoctorToken).stream()
             .map(ficha -> {
                 PacienteDTO paciente = obtenerDatosPaciente(ficha.getRunPaciente());
                 return mapearAResponse(ficha, paciente);
-            })
-            .collect(Collectors.toList());
+            }).collect(Collectors.toList());
     }
 
-    // =====================================================================
     // ACTUALIZAR FICHA
-    // =====================================================================
     @Transactional
-    public FichaMedicaResponse actualizarFicha(Long idFicha, FichaMedicaUpdateRequest request) {
+    public FichaMedicaResponse actualizarFicha(Long idFicha, FichaMedicaUpdateRequest request, String runDoctorToken) {
         FichaMedica ficha = fichaMedicaRepository.findById(idFicha)
             .orElseThrow(() -> new RecursoNoEncontradoException(
                 "No se encontró la ficha médica con ID: " + idFicha
             ));
 
+        validarRelacionDoctorPaciente(runDoctorToken, ficha.getRunPaciente());
+
         ficha.setHistorialFamiliar(request.getHistorialFamiliar());
         ficha.setDiagnostico(request.getHipotesisDiagnostica());
 
-        // Actualizar Contactos Profesionales
         if (request.getContactosProfesionales() != null) {
             ficha.getContactoPro().clear();
             request.getContactosProfesionales().forEach(dto -> {
@@ -135,7 +159,6 @@ public class FichaMedicaService {
             });
         }
 
-        // Actualizar Teléfonos de Emergencia
         if (request.getTelefonosEmergencia() != null) {
             ficha.getTelefonos().clear();
             request.getTelefonosEmergencia().forEach(dto -> {
@@ -147,7 +170,6 @@ public class FichaMedicaService {
             });
         }
 
-        // Actualizar Fármacos
         if (request.getFarmacos() != null) {
             ficha.getFarmacos().clear();
             request.getFarmacos().forEach(dto -> {
@@ -168,12 +190,14 @@ public class FichaMedicaService {
     // ELIMINAR FICHA
     // =====================================================================
     @Transactional
-    public void eliminarFicha(Long idFicha) {
-        if (!fichaMedicaRepository.existsById(idFicha)) {
-            throw new RecursoNoEncontradoException(
+    public void eliminarFicha(Long idFicha, String runDoctorToken) {
+        FichaMedica ficha = fichaMedicaRepository.findById(idFicha)
+            .orElseThrow(() -> new RecursoNoEncontradoException(
                 "No se encontró la ficha médica con ID: " + idFicha
-            );
-        }
+            ));
+
+        validarRelacionDoctorPaciente(runDoctorToken, ficha.getRunPaciente());
+
         fichaMedicaRepository.deleteById(idFicha);
     }
 
@@ -181,10 +205,12 @@ public class FichaMedicaService {
     // AGREGAR REPORTE A UNA FICHA
     // =====================================================================
     @Transactional
-    public ReporteDTO agregarReporte(Long idFicha, ReporteCreateRequest request) {
-        if (!fichaMedicaRepository.existsById(idFicha))
-            throw new RecursoNoEncontradoException(
-                "No se encontró la ficha médica con ID: " + idFicha);
+    public ReporteDTO agregarReporte(Long idFicha, ReporteCreateRequest request, String runDoctorToken) {
+        FichaMedica ficha = fichaMedicaRepository.findById(idFicha)
+            .orElseThrow(() -> new RecursoNoEncontradoException(
+                "No se encontró la ficha médica con ID: " + idFicha));
+
+        validarRelacionDoctorPaciente(runDoctorToken, ficha.getRunPaciente());
 
         Map<String, Object> body = new HashMap<>();
         body.put("nombreReporte", request.getNombreReporte());
@@ -206,7 +232,81 @@ public class FichaMedicaService {
     }
 
     // =====================================================================
-    // MÉTODOS PRIVADOS
+    // OBTENER REPORTE ESPECÍFICO DE UNA FICHA
+    // =====================================================================
+    @Transactional(readOnly = true)
+    public ReporteDTO obtenerReporteDeFicha(Long idFicha, Long idReporte, String runDoctorToken) {
+        FichaMedica ficha = fichaMedicaRepository.findById(idFicha)
+            .orElseThrow(() -> new RecursoNoEncontradoException(
+                "No se encontró la ficha médica con ID: " + idFicha));
+
+        validarRelacionDoctorPaciente(runDoctorToken, ficha.getRunPaciente());
+
+        return obtenerReportePorId(idReporte);
+    }
+
+    // =====================================================================
+    // EDITAR REPORTE DE UNA FICHA
+    // =====================================================================
+    @Transactional
+    public ReporteDTO editarReporteDeFicha(Long idFicha, Long idReporte, ReporteUpdateRequest request, String runDoctorToken) {
+        FichaMedica ficha = fichaMedicaRepository.findById(idFicha)
+            .orElseThrow(() -> new RecursoNoEncontradoException(
+                "No se encontró la ficha médica con ID: " + idFicha));
+
+        validarRelacionDoctorPaciente(runDoctorToken, ficha.getRunPaciente());
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("nombreReporte", request.getNombreReporte());
+        body.put("idFichaMedica", idFicha);
+        body.put("descripcion", request.getDescripcion());
+
+        return actualizarReporteRemoto(idReporte, body);
+    }
+
+    // =====================================================================
+    // ELIMINAR REPORTE DE UNA FICHA
+    // =====================================================================
+    @Transactional
+    public void eliminarReporteDeFicha(Long idFicha, Long idReporte, String runDoctorToken) {
+        FichaMedica ficha = fichaMedicaRepository.findById(idFicha)
+            .orElseThrow(() -> new RecursoNoEncontradoException(
+                "No se encontró la ficha médica con ID: " + idFicha));
+
+        validarRelacionDoctorPaciente(runDoctorToken, ficha.getRunPaciente());
+
+        eliminarReporteRemoto(idReporte);
+    }
+
+    // =====================================================================
+    // MÉTODOS PRIVADOS — SEGURIDAD
+    // =====================================================================
+
+    private void validarRelacionDoctorPaciente(String runDoctor, String runPaciente) {
+        try {
+            Boolean existe = webClientBuilder.build()
+                .get()
+                .uri(urlMsDoctores + "/existe/{runDoctor}/{runPaciente}", runDoctor, runPaciente)
+                .retrieve()
+                .bodyToMono(Boolean.class)
+                .block();
+
+            if (Boolean.FALSE.equals(existe)) {
+                throw new AccesoDenegadoException(
+                    "Acceso denegado: No tiene relación de atención con el paciente " + runPaciente + "."
+                );
+            }
+        } catch (AccesoDenegadoException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException(
+                "Error de validación en MS-DOCTORES: " + e.getMessage(), e
+            );
+        }
+    }
+
+    // =====================================================================
+    // MÉTODOS PRIVADOS — COMUNICACIÓN CON MICROSERVICIOS
     // =====================================================================
 
     private PacienteDTO obtenerDatosPaciente(String runPaciente) {
@@ -241,9 +341,67 @@ public class FichaMedicaService {
         }
     }
 
+    private ReporteDTO obtenerReportePorId(Long idReporte) {
+        try {
+            return webClientBuilder.build()
+                .get()
+                .uri(urlMsReportes + "/{idReporte}", idReporte)
+                .retrieve()
+                .bodyToMono(ReporteDTO.class)
+                .block();
+        } catch (WebClientResponseException.NotFound e) {
+            throw new RecursoNoEncontradoException(
+                "No se encontró el reporte con ID: " + idReporte
+            );
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException(
+                "Error al obtener reporte desde ms-reportes: " + e.getMessage(), e);
+        }
+    }
+
+    private ReporteDTO actualizarReporteRemoto(Long idReporte, Map<String, Object> body) {
+        try {
+            return webClientBuilder.build()
+                .put()
+                .uri(urlMsReportes + "/{idReporte}", idReporte)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(ReporteDTO.class)
+                .block();
+        } catch (WebClientResponseException.NotFound e) {
+            throw new RecursoNoEncontradoException(
+                "No se encontró el reporte con ID: " + idReporte
+            );
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException(
+                "Error al editar reporte en ms-reportes: " + e.getMessage(), e);
+        }
+    }
+
+    private void eliminarReporteRemoto(Long idReporte) {
+        try {
+            webClientBuilder.build()
+                .delete()
+                .uri(urlMsReportes + "/{idReporte}", idReporte)
+                .retrieve()
+                .bodyToMono(Void.class)
+                .block();
+        } catch (WebClientResponseException.NotFound e) {
+            throw new RecursoNoEncontradoException(
+                "No se encontró el reporte con ID: " + idReporte
+            );
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException(
+                "Error al eliminar reporte en ms-reportes: " + e.getMessage(), e);
+        }
+    }
+
+    // =====================================================================
+    // MÉTODO PRIVADO — MAPEO
+    // =====================================================================
+
     private FichaMedicaResponse mapearAResponse(FichaMedica ficha, PacienteDTO paciente) {
 
-        // Mapeo de Contactos
         List<ContactoProfesionalDTO> contactosDto = ficha.getContactoPro() != null
             ? ficha.getContactoPro().stream().map(cp -> {
                 ContactoProfesionalDTO dto = new ContactoProfesionalDTO();
@@ -254,7 +412,6 @@ public class FichaMedicaService {
             }).collect(Collectors.toList())
             : new ArrayList<>();
 
-        // Mapeo de Teléfonos
         List<TelefonoEmergenciaDTO> telefonosDto = ficha.getTelefonos() != null
             ? ficha.getTelefonos().stream().map(te -> {
                 TelefonoEmergenciaDTO dto = new TelefonoEmergenciaDTO();
@@ -264,7 +421,6 @@ public class FichaMedicaService {
             }).collect(Collectors.toList())
             : new ArrayList<>();
 
-        // Mapeo de Fármacos
         List<FarmacosRecetadosDTO> farmacosDto = ficha.getFarmacos() != null
             ? ficha.getFarmacos().stream().map(fr -> {
                 FarmacosRecetadosDTO dto = new FarmacosRecetadosDTO();

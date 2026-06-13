@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,6 +18,7 @@ import com.nubemedica.service_registropacientes.repository.PacienteRepository;
 
 import jakarta.transaction.Transactional;
 
+
 @Service
 public class PacienteService {
 
@@ -26,6 +28,9 @@ public class PacienteService {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
+    @Value("${ms.fichamedica.url:http://localhost:8089/api/v1/fichas}")
+    private String urlMsFichamedica;
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // MÉTODOS PÚBLICOS (NORMALIZADOS)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -34,13 +39,12 @@ public class PacienteService {
     public PacienteRegistroResponse guardarPaciente(PacienteRegistroRequest request, String runDoctor) {
         Optional<Paciente> pacienteExistente = pacienteRepository.findById(request.getRunPaciente());
 
-        // 1. Si el paciente ya existe en el sistema global
+        // Caso: paciente ya existe
         if (pacienteExistente.isPresent()) {
             Paciente existente = pacienteExistente.get();
-            // Asociamos al nuevo doctor
-            asociarDoctorAPaciente(runDoctor, existente.getRunPaciente());
-            
-            // Enriquecemos (traemos dirección) y mapeamos al DTO único
+
+            asociarYCrearFicha(runDoctor, existente.getRunPaciente()); // ← una sola línea
+
             Paciente enriquecido = enriquecerConDireccion(existente);
             return new PacienteRegistroResponse(
                     mapearAPacienteResponse(enriquecido),
@@ -49,13 +53,11 @@ public class PacienteService {
             );
         }
 
-        // 2. Validar duplicados de contacto
+        // Caso: paciente nuevo
         validarDatosUnicos(request.getCorreo(), request.getNumTelefono());
 
-        // 3. Crear dirección en MS-DIRECCION (Recibimos el DTO Plano de respuesta)
         DireccionResponse direccionGuardada = crearDireccionEnMS(request.getDireccion());
 
-        // 4. Crear paciente nuevo
         Paciente nuevoPaciente = new Paciente();
         nuevoPaciente.setRunPaciente(request.getRunPaciente());
         nuevoPaciente.setCorreo(request.getCorreo());
@@ -64,22 +66,18 @@ public class PacienteService {
         nuevoPaciente.setApaPaterno(request.getApaPaterno());
         nuevoPaciente.setApaMaterno(request.getApaMaterno());
         nuevoPaciente.setNumTelefono(request.getNumTelefono());
-        
-        // Guardamos el ID que nos devolvió el MS-DIRECCION
         nuevoPaciente.setIdDireccion(direccionGuardada.getIdDireccion());
 
         Paciente guardado = pacienteRepository.save(nuevoPaciente);
 
-        // 5. Crear la relación en MS-DOCTOR
-        asociarDoctorAPaciente(runDoctor, guardado.getRunPaciente());
+        asociarYCrearFicha(runDoctor, guardado.getRunPaciente()); // ← una sola línea
 
-        // 6. Asignación manual para evitar segunda llamada HTTP innecesaria
         guardado.setDatosDireccion(direccionGuardada);
-
         return new PacienteRegistroResponse(
                 mapearAPacienteResponse(guardado),
                 "Paciente registrado y asociado exitosamente.",
-                false);
+                false
+        );
     }
 
     public PacienteResponse obtenerPacientePorRun(String runPaciente, String runDoctorToken) {
@@ -155,6 +153,23 @@ public class PacienteService {
                                 " " + p.getApaMaterno())
                 .direccion(p.getDatosDireccion())
                 .build();
+    }
+
+    private void asociarYCrearFicha(String runDoctor, String runPaciente) {
+        asociarDoctorAPaciente(runDoctor, runPaciente);
+            try {
+                crearFichaEnMS(runPaciente, runDoctor);
+            } catch (Exception e) {
+                try {
+                    desasociarPacienteDeDoctor(new RelacionDoctorPacienteDTO(runDoctor, runPaciente));
+                } catch (Exception compensacionEx) {
+                    // Compensación fallida — inconsistencia entre MS-DOCTORES y MS-FICHAMEDICA
+                    // Requiere intervención manual o sistema de reconciliación
+                }
+                throw new ComunicacionMicroservicioException(
+                    "Error al crear ficha médica. Se revirtió la asociación del doctor.", e
+                );
+        }
     }
 
     private Paciente enriquecerConDireccion(Paciente paciente) {
@@ -279,4 +294,21 @@ public class PacienteService {
             throw new ComunicacionMicroservicioException("No se pudo desasociar el paciente", e);
         }
     }
+
+    private void crearFichaEnMS(String runPaciente, String runDoctor) {
+        try {
+            webClientBuilder.build()
+                .post()
+                .uri(urlMsFichamedica + "/interno?runPaciente={rp}&runDoctor={rd}",
+                    runPaciente, runDoctor)
+                .retrieve()
+                .bodyToMono(Void.class)
+                .block();
+        } catch (Exception e) {
+            throw new ComunicacionMicroservicioException(
+                "Error al crear la ficha médica en MS-FICHAMEDICA: " + e.getMessage(), e
+            );
+        }
+    }
+
 }
