@@ -1,15 +1,13 @@
 package com.nubemedica.service_calendario.service;
-
 import com.nubemedica.service_calendario.dto.*;
 import com.nubemedica.service_calendario.exceptions.*;
 import com.nubemedica.service_calendario.model.*;
 import com.nubemedica.service_calendario.repository.*;
-
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -27,6 +25,19 @@ public class CalendarioService {
     private TipoEventoRepository tipoEventoRepository;
     @Autowired
     private WebClient.Builder webClientBuilder;
+
+    // URLs de Microservicios
+    @Value("${ms.telemedicina.url:http://localhost:8090/api/v1/telemedicina}")
+    private String urlTelemedicina;
+
+    @Value("${ms.notificaciones.url:http://localhost:8091/api/v1/notificaciones}")
+    private String urlNotificaciones;
+
+    @Value("${ms.pacientes.url:http://localhost:8084/api/v1/pacientes}")
+    private String urlPacientes;
+
+    @Value("${ms.doctores.url:http://localhost:8085/api/v1/doctores}") 
+    private String urlDoctores;
 
     // CRUD CITA MÉDICA
 
@@ -265,14 +276,13 @@ public class CalendarioService {
         res.setMotivoConsulta(cita.getMotivoConsulta());
         res.setRunDoctor(cita.getRunDoctor());
         res.setRunPaciente(cita.getRunPaciente());
-        
-        // Obtenemos el objeto DTO completo del microservicio
-        EstadoCitaMedicaDTO estado = obtenerEstadoCita(idEstado);
-        
-        // CORRECCIÓN: Pasamos el objeto 'estado' completo, no solo el String
-        if (estado != null) {
-            res.setEstadoCita(estado); 
+
+        if (cita.getDatosTelemedicina() != null) {
+            res.setTelemedicina(cita.getDatosTelemedicina());
         }
+
+        EstadoCitaMedicaDTO estado = obtenerEstadoCita(idEstado);
+        if (estado != null) res.setEstadoCita(estado);
         
         return res;
     }
@@ -307,6 +317,34 @@ public class CalendarioService {
             dto.setDescripcion(a.getDescripcion());
         }
         return dto;
+    }
+
+    private void programarNotificacionesCita(CitaMedica cita, PacienteDTO p, DoctorResponseDTO d) {
+        LocalDate fechaEnvio = cita.getFecha().minusDays(1);
+        LocalTime horaEnvio = LocalTime.of(18, 0);
+        TelemedicinaResponseDTO tele = cita.getDatosTelemedicina();
+
+        // MENSAJE PACIENTE
+        String msgPaciente = String.format(
+            "Estimado(a) %s:\n\nLe recordamos que tiene una cita médica programada con el profesional %s el día %s a las %s.\n\n" +
+            "podrá acceder mediante el siguiente enlace:\n%s y para acceder debera ingresar el codigo %s\n\n" +
+            "Por favor, procure conectarse con algunos minutos de anticipación.\n\nAtentamente,\nEquipo de Nube Médica",
+            p.getNombreCompleto(), d.getNombreCompleto(), cita.getFecha(), cita.getHora(), 
+            tele.getLinkAcceso(), tele.getCodigoAcceso()
+        );
+
+        // MENSAJE PROFESIONAL
+        String msgDoctor = String.format(
+            "Estimado(a) %s:\n\nLe recordamos que tiene una cita médica programada con el paciente %s el día %s a las %s.\n\n" +
+            "podrá acceder mediante el siguiente enlace:\n%s y para acceder debera ingresar el codigo %s\n\n" +
+            "Atentamente,\nEquipo de Nube Médica",
+            d.getNombreCompleto(), p.getNombreCompleto(), cita.getFecha(), cita.getHora(), 
+            tele.getLinkAcceso(), tele.getCodigoAcceso()
+        );
+
+        // Enviar a Microservicio de Notificaciones
+        enviarNotificacion(p.getCorreo(), "Recordatorio de Cita Médica", msgPaciente, fechaEnvio, horaEnvio);
+        enviarNotificacion(d.getCorreo(), "Nueva Cita en su Agenda", msgDoctor, fechaEnvio, horaEnvio);
     }
 
     // ==========================================
@@ -368,7 +406,7 @@ public class CalendarioService {
         }
     }
 
-        // Nuevo método privado para la comunicación con MS-ESTADOCITA
+    // Nuevo método privado para la comunicación con MS-ESTADOCITA
     private void eliminarEstadoCitaEnMS(Long idEstado) {
         try {
             webClientBuilder.build()
@@ -382,4 +420,54 @@ public class CalendarioService {
             System.err.println("No se pudo borrar el estado " + idEstado + ": " + e.getMessage());
         }
     }
+
+    private TelemedicinaResponseDTO generarTelemedicina() {
+        return webClientBuilder.build().post()
+                .uri(urlTelemedicina + "/generar")
+                .retrieve()
+                .bodyToMono(TelemedicinaResponseDTO.class)
+                .block();
+    }
+
+    private void enviarNotificacion(String correo, String asunto, String mensaje, LocalDate fecha, LocalTime hora) {
+        NotificacionRequestDTO req = new NotificacionRequestDTO(correo, asunto, mensaje, fecha, hora);
+        webClientBuilder.build().post()
+                .uri(urlNotificaciones)
+                .bodyValue(req)
+                .retrieve()
+                .bodyToMono(Void.class)
+                .block();
+    }
+
+    private PacienteDTO obtenerDatosPaciente(String run) {
+        return webClientBuilder.build().get()
+                .uri(urlPacientes + "/" + run)
+                .retrieve()
+                .bodyToMono(PacienteDTO.class)
+                .block();
+    }
+
+    private DoctorResponseDTO obtenerDatosDoctor(String run) {
+        return webClientBuilder.build().get()
+                .uri(urlDoctores + "/" + run)
+                .retrieve()
+                .bodyToMono(DoctorResponseDTO.class)
+                .block();
+    }
+
+    private void enriquecerConTelemedicina(CitaMedica cita) {
+        if (cita.getIdSesionTelemedicina() != null && cita.getDatosTelemedicina() == null) {
+            try {
+                TelemedicinaResponseDTO tele = webClientBuilder.build().get()
+                        .uri(urlTelemedicina + "/" + cita.getIdSesionTelemedicina())
+                        .retrieve()
+                        .bodyToMono(TelemedicinaResponseDTO.class)
+                        .block();
+                cita.setDatosTelemedicina(tele);
+            } catch (Exception e) {
+                System.err.println("No se pudo cargar Telemedicina ID: " + cita.getIdSesionTelemedicina());
+            }
+        }
+    }
+
 }

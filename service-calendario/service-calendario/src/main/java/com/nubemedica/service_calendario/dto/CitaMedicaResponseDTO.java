@@ -16,4 +16,6 @@ public class CitaMedicaResponseDTO {
     private LocalTime hora;
     private String motivoConsulta;
     private EstadoCitaMedicaDTO estadoCita;
+    private TelemedicinaResponseDTO telemedicina;
+
 }
