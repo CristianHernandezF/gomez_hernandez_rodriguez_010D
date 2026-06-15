@@ -26,4 +26,7 @@ public class NotificacionRequestDTO {
 
     @NotNull(message = "La hora de envío es obligatoria")
     private LocalTime horaEnvio;
-}
+
+    @NotNull(message = "El ID del evento es obligatorio")
+    private Long idEvento; 
+}  

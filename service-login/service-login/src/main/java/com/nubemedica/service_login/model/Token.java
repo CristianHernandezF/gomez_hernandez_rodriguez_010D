@@ -24,4 +24,6 @@ public class Token {
     private LocalDateTime fechaExpRefresh;
 
     private boolean activo;
+
+    private String runDoctor;
 }

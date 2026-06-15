@@ -27,9 +27,10 @@ public class TokenService {
         Token token = new Token();
         token.setCorreoUsuario(usuario.getCorreo());
         token.setTokenGenerado(hashUtils.hash(accessJwt));
-        token.setRefreshToken(hashUtils.hash(refreshJwt));
+        token.setRefreshToken(refreshJwt);
         token.setFechaExp(LocalDateTime.now().plusHours(1));
         token.setFechaExpRefresh(LocalDateTime.now().plusDays(7));
+        token.setRunDoctor(usuario.getRunDoctor());
         token.setActivo(true);
         tokenRepository.save(token);
     }

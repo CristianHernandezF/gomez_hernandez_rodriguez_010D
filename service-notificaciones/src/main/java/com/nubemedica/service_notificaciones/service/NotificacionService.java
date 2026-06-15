@@ -88,4 +88,12 @@ public class NotificacionService {
                 .estadoEnvio(n.isEstadoEnvio())
                 .build();
     }
+
+    @Transactional
+    public void eliminarPorEvento(Long idEvento) {
+        // Asumiendo que agregas findByIdEvento en el Repository
+        List<Notificacion> lista = repository.findByIdEvento(idEvento);
+        repository.deleteAll(lista);
+    }
+
 }

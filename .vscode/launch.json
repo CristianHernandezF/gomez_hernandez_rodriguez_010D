@@ -52,7 +52,8 @@
             "mainClass": "com.nubemedica.service_login.ServiceLoginApplication",
             "projectName": "service-login",
             "args": "",
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
         },
         {
             "type": "java",
@@ -62,7 +63,8 @@
             "mainClass": "com.nubemedica.service_registrodoctor.ServiceRegistrodoctorApplication",
             "projectName": "service-registrodoctor",
             "args": "",
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
         },
         {
             "type": "java",
@@ -72,7 +74,8 @@
             "mainClass": "com.nubemedica.service_registropacientes.ServiceRegistropacientesApplication",
             "projectName": "service-registropacientes",
             "args": "",
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
         },
         {
             "type": "java",
@@ -81,6 +84,37 @@
             "cwd": "${workspaceFolder}",
             "mainClass": "com.nubemedica.service_fichamedica.ServiceFichamedicaApplication",
             "projectName": "service-fichamedica",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceNotificacionesApplication<service-notificaciones>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.service_notificaciones.ServiceNotificacionesApplication",
+            "projectName": "service-notificaciones",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceTelemedicinaApplication<service-telemedicina>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.service_telemedicina.ServiceTelemedicinaApplication",
+            "projectName": "service-telemedicina",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceReportesApplication<service_reportes>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.nubemedica.service_reportes.ServiceReportesApplication",
+            "projectName": "service_reportes",
             "args": "",
             "envFile": "${workspaceFolder}/.env"
         }

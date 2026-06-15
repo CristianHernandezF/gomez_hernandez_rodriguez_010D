@@ -8,6 +8,7 @@ import com.nubemedica.service_login.service.LoginUsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +23,7 @@ public class LoginUsuarioController {
     @Autowired
     private AuthService authService;
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<LoginUsuarioResponse>> listar() {
         return ResponseEntity.ok(loginUsuarioService.listarUsuarios());
@@ -36,9 +38,10 @@ public class LoginUsuarioController {
     public ResponseEntity<MensajeResponse> actualizarContrasena(@PathVariable Long id, @RequestBody @Valid LoginUsuarioRequest request) {
         var usuario = authService.actualizarContrasena(id, request.contrasena());
 
-        return ResponseEntity.ok(new MensajeResponse("Contraseña actualizada exitosamente al usuario con id: " + usuario.idUsuario()));
+        return ResponseEntity.ok(new MensajeResponse("ContraseÃ±a actualizada exitosamente al usuario con id: " + usuario.idUsuario()));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         loginUsuarioService.eliminarUsuario(id);

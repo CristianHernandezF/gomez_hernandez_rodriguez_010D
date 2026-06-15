@@ -36,4 +36,7 @@ public class Notificacion {
 
     @Column(nullable = false)
     private boolean estadoEnvio; // true = Enviada, false = Pendiente
+
+    @Column(nullable = false)
+    private Long idEvento; // ID de del evento asociado a la notificación
 }

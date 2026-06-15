@@ -61,8 +61,8 @@ public class AuthService {
         var usuario = new LoginUsuario(datos, passwordEncoder);
         loginUsuarioService.guardarUsuario(usuario);
 
-        String accessToken = jwtUtils.generateToken(usuario.getCorreo(), usuario.getRunDoctor());
-        String refreshToken = jwtUtils.generateRefreshToken(usuario.getCorreo(), usuario.getRunDoctor());
+        String accessToken = jwtUtils.generateToken(usuario.getCorreo(), usuario.getRunDoctor(), usuario.getRole());
+        String refreshToken = jwtUtils.generateRefreshToken();
 
         tokenService.guardarTokens(usuario, accessToken, refreshToken);
 
@@ -75,8 +75,8 @@ public class AuthService {
         var usuario = loginUsuarioService.buscarPorCorreo(datos.correo())
                 .orElseThrow(() -> new AuthException("Usuario no encontrado"));
 
-        String accessToken = jwtUtils.generateToken(usuario.getCorreo(), usuario.getRunDoctor());
-        String refreshToken = jwtUtils.generateRefreshToken(usuario.getCorreo(), usuario.getRunDoctor());
+        String accessToken = jwtUtils.generateToken(usuario.getCorreo(), usuario.getRunDoctor(), usuario.getRole());
+        String refreshToken = jwtUtils.generateRefreshToken();
 
         tokenService.guardarTokens(usuario, accessToken, refreshToken);
 
@@ -85,11 +85,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse refrescarToken(String refreshTokenRequest) {
-        DecodedJWT decodedJWT = jwtUtils.validateToken(refreshTokenRequest);
-        String correo = decodedJWT.getSubject();
-
-        String hashRT = hashUtils.hash(refreshTokenRequest);
-        Token tokenDB = tokenRepository.findByRefreshToken(hashRT)
+        Token tokenDB = tokenRepository.findByRefreshToken(refreshTokenRequest)
                 .orElseThrow(() -> new TokenRevokedException("Refresh token no encontrado"));
 
         if (!tokenDB.isActivo() || tokenDB.getFechaExpRefresh().isBefore(LocalDateTime.now())) {
@@ -98,13 +94,17 @@ public class AuthService {
             throw new TokenRevokedException("Refresh token expirado o inactivo");
         }
 
+        String correo = tokenDB.getCorreoUsuario();
+        String runDoctor = tokenDB.getRunDoctor();
+
         tokenDB.setActivo(false);
         tokenRepository.save(tokenDB);
 
-        String nuevoToken = jwtUtils.generateToken(correo, decodedJWT.getClaim("runDoctor").asString());
-        String nuevoRefreshToken = jwtUtils.generateRefreshToken(correo, decodedJWT.getClaim("runDoctor").asString());
-
         var usuario = loginUsuarioService.buscarPorCorreo(correo).get();
+
+        String nuevoToken = jwtUtils.generateToken(correo, runDoctor, usuario.getRole());
+        String nuevoRefreshToken = jwtUtils.generateRefreshToken();
+
         tokenService.guardarTokens(usuario, nuevoToken, nuevoRefreshToken);
 
         return new AuthResponse(usuario.getRunDoctor(), correo, nuevoToken, nuevoRefreshToken);
@@ -118,7 +118,7 @@ public class AuthService {
 
     @Transactional
     public void cerrarSesion(String token) {
-        tokenRepository.findByTokenGenerado(token).ifPresent(t -> {
+        tokenRepository.findByTokenGenerado(hashUtils.hash(token)).ifPresent(t -> {
             t.setActivo(false);
             tokenRepository.save(t);
         });
