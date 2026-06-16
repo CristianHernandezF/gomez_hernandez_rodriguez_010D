@@ -44,9 +44,11 @@ public class FichaMedicaController {
     @GetMapping("/{id}")
     public ResponseEntity<FichaMedicaResponse> obtenerFichaPorId(
             @PathVariable Long id,
-            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+            @RequestHeader("X-Doctor-Run") String runDoctorToken,
+            @RequestHeader("Authorization") String token
+        ) {
 
-        return ResponseEntity.ok(fichaMedicaService.obtenerFichaPorId(id, runDoctorToken));
+        return ResponseEntity.ok(fichaMedicaService.obtenerFichaPorId(id, runDoctorToken, token));
     }
 
     // GET /api/v1/fichas/buscar?runPaciente=XX
@@ -72,9 +74,10 @@ public class FichaMedicaController {
     public ResponseEntity<FichaMedicaResponse> actualizarFicha(
             @PathVariable Long id,
             @Valid @RequestBody FichaMedicaUpdateRequest request,
-            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+            @RequestHeader("X-Doctor-Run") String runDoctorToken,
+            @RequestHeader("Authorization") String token) {
 
-        return ResponseEntity.ok(fichaMedicaService.actualizarFicha(id, request, runDoctorToken));
+        return ResponseEntity.ok(fichaMedicaService.actualizarFicha(id, request, runDoctorToken, token));
     }
 
     // DELETE /api/v1/fichas/{id}

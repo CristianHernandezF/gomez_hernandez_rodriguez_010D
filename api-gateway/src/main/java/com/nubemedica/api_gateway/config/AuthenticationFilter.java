@@ -40,6 +40,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                     // 2. Validar Token y extraer Claim "runDoctor"
                     DecodedJWT jwt = jwtUtils.validateToken(token);
                     String runDoctor = jwt.getClaim("runDoctor").asString();
+                    String role = jwt.getClaim("role").asString();
 
                     if (runDoctor == null || runDoctor.isBlank()) {
                         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Token no contiene RUN del doctor");
@@ -48,6 +49,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                     // Los microservicios internos leerán este header "X-Doctor-Run"
                     request = request.mutate()
                             .header("X-Doctor-Run", runDoctor)
+                            .header("X-User-Role", role)
                             .build();
 
                 } catch (Exception e) {

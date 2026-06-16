@@ -32,8 +32,9 @@ public class CalendarioController {
     @PostMapping("/citas")
     public ResponseEntity<CitaMedicaResponseDTO> crearCita(
             @Valid @RequestBody CitaMedicaRequestDTO request,
-            @RequestHeader("X-Doctor-Run") String runDoctor) {
-        return new ResponseEntity<>(citaMedicaService.crearCitaMedica(request, runDoctor), HttpStatus.CREATED);
+            @RequestHeader("X-Doctor-Run") String runDoctor,
+            @RequestHeader("Authorization") String token) {
+        return new ResponseEntity<>(citaMedicaService.crearCitaMedica(request, runDoctor, token), HttpStatus.CREATED);
     }
 
     @GetMapping("/citas/{id}")
@@ -53,15 +54,17 @@ public class CalendarioController {
     public ResponseEntity<CitaMedicaResponseDTO> actualizarCita(
             @PathVariable Long id, 
             @Valid @RequestBody CitaMedicaRequestDTO request,
-            @RequestHeader("X-Doctor-Run") String runDoctor) {
-        return ResponseEntity.ok(citaMedicaService.actualizarCitaMedica(id, request, runDoctor));
+            @RequestHeader("X-Doctor-Run") String runDoctor,
+            @RequestHeader("Authorization") String token) {
+        return ResponseEntity.ok(citaMedicaService.actualizarCitaMedica(id, request, runDoctor, token));
     }
 
     @DeleteMapping("/citas/{id}")
     public ResponseEntity<Void> eliminarCita(
             @PathVariable Long id,
-            @RequestHeader("X-Doctor-Run") String runDoctor) {
-        citaMedicaService.eliminarCitaMedica(id, runDoctor);
+            @RequestHeader("X-Doctor-Run") String runDoctor,
+            @RequestHeader("Authorization") String token) {
+        citaMedicaService.eliminarCitaMedica(id, runDoctor, token);
         return ResponseEntity.noContent().build();
     }
 
@@ -81,8 +84,9 @@ public class CalendarioController {
     @PostMapping("/actividades")
     public ResponseEntity<ActividadPersonalResponseDTO> crearActividad( 
             @Valid @RequestBody ActividadPersonalRequestDTO request,
-            @RequestHeader("X-Doctor-Run") String runDoctor) {
-        return new ResponseEntity<>(actividadService.crearActividadPersonal(request, runDoctor), HttpStatus.CREATED);
+            @RequestHeader("X-Doctor-Run") String runDoctor,
+            @RequestHeader("Authorization") String token) {
+        return new ResponseEntity<>(actividadService.crearActividadPersonal(request, runDoctor, token), HttpStatus.CREATED);
     }
 
     @GetMapping("/actividades/{id}")
@@ -102,8 +106,9 @@ public class CalendarioController {
     public ResponseEntity<ActividadPersonalResponseDTO> actualizarActividad(
             @PathVariable Long id, 
             @Valid @RequestBody ActividadPersonalRequestDTO request,
-            @RequestHeader("X-Doctor-Run") String runDoctor) {
-        return ResponseEntity.ok(actividadService.actualizarActividadPersonal(id, request, runDoctor));
+            @RequestHeader("X-Doctor-Run") String runDoctor,
+            @RequestHeader("Authorization") String token) {
+        return ResponseEntity.ok(actividadService.actualizarActividadPersonal(id, request, runDoctor, token));
     }
 
     @DeleteMapping("/actividades/{id}")

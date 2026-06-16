@@ -40,7 +40,8 @@ public class PacienteController {
     
     @GetMapping("/{runPaciente}")
     public ResponseEntity<PacienteResponse> obtenerPaciente (@PathVariable String runPaciente,
-        @RequestHeader("X-Doctor-Run") String runDoctor){
+        @RequestHeader("X-Doctor-Run") String runDoctor,
+        @RequestHeader("Authorization") String token){
         return ResponseEntity.ok(pacienteService.obtenerPacientePorRun(runPaciente, runDoctor));
     }
 

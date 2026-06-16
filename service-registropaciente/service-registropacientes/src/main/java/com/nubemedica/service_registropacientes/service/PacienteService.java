@@ -19,6 +19,7 @@ import com.nubemedica.service_registropacientes.repository.PacienteRepository;
 import jakarta.transaction.Transactional;
 
 
+
 @Service
 public class PacienteService {
 
@@ -28,7 +29,7 @@ public class PacienteService {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
-    @Value("${ms.fichamedica.url:http://localhost:8089/api/v1/fichas}")
+    @Value("${ms.fichamedica.url:http://localhost:8088/api/v1/fichas}")
     private String urlMsFichamedica;
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

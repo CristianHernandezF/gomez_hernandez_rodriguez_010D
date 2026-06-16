@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -41,16 +42,19 @@ public class DoctorController {
     }
 
     @GetMapping("/todos")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<DoctorResponse> listarDoctores() {
         return doctorService.listarTodos();
     }
 
     @GetMapping("/{runDoctor}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR') and #runDoctor == authentication.name")
     public ResponseEntity<DoctorResponse> obtenerDoctor(@PathVariable String runDoctor) {
         return ResponseEntity.ok(doctorService.obtenerPorRun(runDoctor));
     }
 
     @PutMapping("/{runDoctor}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR') and #runDoctor == authentication.name")
     public ResponseEntity<DoctorResponse> actualizarDoctor(
             @PathVariable String runDoctor,
             @Valid @RequestBody ActualizarDoctorRequest request) {
@@ -58,6 +62,7 @@ public class DoctorController {
     }
 
     @DeleteMapping("/{runDoctor}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR') and #runDoctor == authentication.name")
     public ResponseEntity<Void> eliminarDoctor(@PathVariable String runDoctor) {
         doctorService.eliminarDoctor(runDoctor);
         return ResponseEntity.noContent().build();

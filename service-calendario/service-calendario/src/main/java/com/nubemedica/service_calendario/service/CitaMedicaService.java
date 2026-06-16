@@ -33,16 +33,19 @@ public class CitaMedicaService {
     @Value("${ms.estadocita.url:http://localhost:8087/api/v1/estadocita}")
     private String urlEstadoCita;
 
-    @Value("${ms.doctores.url:http://localhost:8085/api/v1/doctores}")
+    @Value("${ms.doctores.url:http://localhost:8081/api/v1/doctores}")
     private String urlDoctores;
 
-    @Value("${ms.pacientes.url:http://localhost:8084/api/v1/pacientes}")
+    @Value("${ms.atenciones.url:http://localhost:8085/api/v1/atenciones}")
+    private String urlAtenciones;
+
+    @Value("${ms.pacientes.url:http://localhost:8081/api/v1/pacientes}")
     private String urlPacientes;
 
-    @Value("${ms.telemedicina.url:http://localhost:8088/api/v1/telemedicina}")
+    @Value("${ms.telemedicina.url:http://localhost:8090/api/v1/telemedicina}")
     private String urlTelemedicina;
 
-    @Value("${ms.notificaciones.url:http://localhost:8089/api/v1/notificaciones}")
+    @Value("${ms.notificaciones.url:http://localhost:8091/api/v1/notificaciones}")
     private String urlNotificaciones;
 
     // ======================================
@@ -50,7 +53,7 @@ public class CitaMedicaService {
     // ======================================
 
     @Transactional
-    public CitaMedicaResponseDTO crearCitaMedica(CitaMedicaRequestDTO request, String runDoctor) {
+    public CitaMedicaResponseDTO crearCitaMedica(CitaMedicaRequestDTO request, String runDoctor, String token) {
         validarFecha(request.getFecha());
         validarTraslapeHorario(runDoctor, request.getFecha(), request.getHora());
         validarRelacionDoctorPaciente(runDoctor, request.getRunPaciente());
@@ -68,14 +71,14 @@ public class CitaMedicaService {
         cita.setIdSesionTelemedicina(tele.getIdSesionTelemedicina()); 
         
         CitaMedica guardada = citaMedicaRepository.save(cita);
-
-        programarNotificacionesCita(guardada, tele.getLinkAcceso(), "PROGRAMADA");
+        System.out.println("Cita médica actualizada: " + guardada);
+        programarNotificacionesCita(guardada, tele.getLinkAcceso(), "PROGRAMADA", token);
 
         return crearRespuestaCita(guardada);
     }
 
     @Transactional
-    public CitaMedicaResponseDTO actualizarCitaMedica(Long id, CitaMedicaRequestDTO request, String runDoctorToken) {
+    public CitaMedicaResponseDTO actualizarCitaMedica(Long id, CitaMedicaRequestDTO request, String runDoctorToken, String token) {
         CitaMedica cita = citaMedicaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Cita no encontrada"));
 
@@ -105,19 +108,19 @@ public class CitaMedicaService {
         }
 
         CitaMedica guardada = citaMedicaRepository.save(cita);
-        programarNotificacionesCita(guardada, linkActual, "ACTUALIZADA");
+        programarNotificacionesCita(guardada, linkActual, "ACTUALIZADA", token);
 
         return crearRespuestaCita(guardada);
     }
 
     @Transactional
-    public void eliminarCitaMedica(Long id, String runDoctorToken) {
+    public void eliminarCitaMedica(Long id, String runDoctorToken, String token) {
         CitaMedica cita = citaMedicaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Cita no encontrada"));
 
         validarPropiedad(cita, runDoctorToken);
 
-        programarNotificacionesCita(cita, "N/A", "CANCELADA");
+        programarNotificacionesCita(cita, "N/A", "CANCELADA", token);
         eliminarTelemedicina(cita.getIdSesionTelemedicina());
         eliminarEstadoCitaEnMS(cita.getIdEstadoCitaMedica());
         
@@ -148,15 +151,15 @@ public class CitaMedicaService {
         citaMedicaRepository.deleteByRunDoctorAndRunPaciente(runDoctor, runPaciente);
     }
 
-    private void programarNotificacionesCita(CitaMedica cita, String link, String accion) {
+    private void programarNotificacionesCita(CitaMedica cita, String link, String accion, String token) {
         LocalDate fechaEnvio = cita.getFecha().minusDays(1);
         
         if (accion.equals("CANCELADA") || fechaEnvio.isBefore(LocalDate.now())) {
             fechaEnvio = LocalDate.now();
         }
 
-        PacienteDTO pac = obtenerDatosPaciente(cita.getRunPaciente());
-        DoctorResponseDTO doc = obtenerDatosDoctor(cita.getRunDoctor());
+        PacienteDTO pac = obtenerDatosPaciente(cita.getRunPaciente(), token);
+        DoctorResponseDTO doc = obtenerDatosDoctor(cita.getRunDoctor(), token);
 
         NotificacionRequestDTO notifPac = new NotificacionRequestDTO();
         notifPac.setCorreoDestino(pac.getCorreo());
@@ -168,6 +171,8 @@ public class CitaMedicaService {
         notifPac.setIdEvento(cita.getIdEvento());
         enviarANotificaciones(notifPac);
 
+        System.out.println("Notificación programada para paciente: " + pac);    
+
         NotificacionRequestDTO notifDoc = new NotificacionRequestDTO();
         notifDoc.setCorreoDestino(doc.getCorreo());
         notifDoc.setAsunto("Agenda: Cita " + accion);
@@ -177,6 +182,9 @@ public class CitaMedicaService {
         notifDoc.setHoraEnvio(LocalTime.of(18, 0));
         notifDoc.setIdEvento(cita.getIdEvento());
         enviarANotificaciones(notifDoc);
+
+        System.out.println("Notificación programada para doctor: " + doc);
+
     }
 
     // ======================================
@@ -216,7 +224,7 @@ public class CitaMedicaService {
         try {
             Boolean existe = webClientBuilder.build()
                                             .get()
-                                            .uri(urlDoctores + "/atenciones/existe/" + runDoctor + "/" + runPaciente)
+                                            .uri(urlAtenciones + "/existe/" + runDoctor + "/" + runPaciente)
                                             .retrieve()
                                             .bodyToMono(Boolean.class)
                                             .block();
@@ -232,11 +240,12 @@ public class CitaMedicaService {
     // WEBCLIENTS
     // ======================================
 
-    private PacienteDTO obtenerDatosPaciente(String runPaciente) {
+    private PacienteDTO obtenerDatosPaciente(String runPaciente, String token) {
         try {
             return webClientBuilder.build()
                     .get()
-                    .uri(urlPacientes + "/" + runPaciente + "/resumen")
+                    .uri(urlPacientes + "/" + runPaciente)
+                    .header("Authorization", token)
                     .retrieve()
                     .bodyToMono(PacienteDTO.class)
                     .block();
@@ -251,11 +260,12 @@ public class CitaMedicaService {
         }
     }
 
-    private DoctorResponseDTO obtenerDatosDoctor(String runDoctor) {
+    private DoctorResponseDTO obtenerDatosDoctor(String runDoctor, String token) {
         try {
             return webClientBuilder.build()
                     .get()
                     .uri(urlDoctores + "/" + runDoctor)
+                    .header("Authorization", token)
                     .retrieve()
                     .bodyToMono(DoctorResponseDTO.class)
                     .block();
@@ -393,6 +403,20 @@ public class CitaMedicaService {
         }
     }
 
+    private TelemedicinaResponseDTO obtenerDatosTelemedicinaDesdeMS(Long idSesion) {
+    if (idSesion == null) return null;
+    try {
+        return webClientBuilder.build().get()
+                .uri(urlTelemedicina + "/" + idSesion)
+                .retrieve()
+                .bodyToMono(TelemedicinaResponseDTO.class)
+                .block();
+    } catch (Exception e) {
+        // Si falla, devolvemos un objeto con mensaje de error o null
+        return null; 
+    }
+}
+
     // ======================================
     // MAPEOS DTO
     // ======================================
@@ -406,6 +430,8 @@ public class CitaMedicaService {
         res.setRunDoctor(cita.getRunDoctor());
         res.setRunPaciente(cita.getRunPaciente());
         res.setEstadoCita(obtenerEstadoCitaDesdeMS(cita.getIdEstadoCitaMedica()));
+        res.setTelemedicina(obtenerDatosTelemedicinaDesdeMS(cita.getIdSesionTelemedicina()));
+        
         return res;
     }
 }

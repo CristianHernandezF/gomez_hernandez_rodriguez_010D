@@ -30,10 +30,10 @@ public class ActividadPersonalService {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
-    @Value("${ms.doctores.url:http://localhost:8085/api/v1/doctores}")
+    @Value("${ms.doctores.url:http://localhost:8081/api/v1/doctores}")
     private String urlDoctores;
 
-    @Value("${ms.notificaciones.url:http://localhost:8089/api/v1/notificaciones}")
+    @Value("${ms.notificaciones.url:http://localhost:8091/api/v1/notificaciones}")
     private String urlNotificaciones;
 
     // ======================================
@@ -41,7 +41,7 @@ public class ActividadPersonalService {
     // ======================================
 
     @Transactional
-    public ActividadPersonalResponseDTO crearActividadPersonal(ActividadPersonalRequestDTO request, String runDoctor) {
+    public ActividadPersonalResponseDTO crearActividadPersonal(ActividadPersonalRequestDTO request, String runDoctor, String token) {
         validarFecha(request.getFecha());
         validarTraslapeHorario(runDoctor, request.getFecha(), request.getHora());
 
@@ -59,13 +59,13 @@ public class ActividadPersonalService {
         ActividadPersonal guardada = actividadPersonalRepository.save(actividad);
 
         // Flujo: Programar notificación de recordatorio para el doctor
-        programarNotificacionActividad(guardada, "RECORDATORIO");
+        programarNotificacionActividad(guardada, "RECORDATORIO", token);
 
         return mapearAResponse(guardada);
     }
 
     @Transactional
-    public ActividadPersonalResponseDTO actualizarActividadPersonal(Long id, ActividadPersonalRequestDTO request, String runDoctorToken) {
+    public ActividadPersonalResponseDTO actualizarActividadPersonal(Long id, ActividadPersonalRequestDTO request, String runDoctorToken, String token) {
         ActividadPersonal actividad = actividadPersonalRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Actividad personal no encontrada"));
 
@@ -84,7 +84,7 @@ public class ActividadPersonalService {
         ActividadPersonal actualizada = actividadPersonalRepository.save(actividad);
         
         // Flujo: Actualizar la notificación con los nuevos datos
-        programarNotificacionActividad(actualizada, "ACTUALIZACIÓN DE ACTIVIDAD");
+        programarNotificacionActividad(actualizada, "ACTUALIZACIÓN DE ACTIVIDAD", token);
 
         return mapearAResponse(actualizada);
     }
@@ -116,14 +116,14 @@ public class ActividadPersonalService {
                 .toList();
     }
 
-    private void programarNotificacionActividad(ActividadPersonal actividad, String accion) {
+    private void programarNotificacionActividad(ActividadPersonal actividad, String accion, String token) {
         // Regla: 1 día antes a las 18:00
         LocalDate fechaEnvio = actividad.getFecha().minusDays(1);
         if (fechaEnvio.isBefore(LocalDate.now())) {
             fechaEnvio = LocalDate.now();
         }
 
-        DoctorResponseDTO doc = obtenerDatosDoctor(actividad.getRunDoctor());
+        DoctorResponseDTO doc = obtenerDatosDoctor(actividad.getRunDoctor(), token);
 
         NotificacionRequestDTO notif = new NotificacionRequestDTO();
         notif.setCorreoDestino(doc.getCorreo());
@@ -176,10 +176,11 @@ public class ActividadPersonalService {
     // WEBCLIENTS
     // ======================================
 
-    private DoctorResponseDTO obtenerDatosDoctor(String runDoctor) {
+    private DoctorResponseDTO obtenerDatosDoctor(String runDoctor, String token) {
         try {
             return webClientBuilder.build().get()
                     .uri(urlDoctores + "/" + runDoctor)
+                    .header("Authorization", token)
                     .retrieve()
                     .bodyToMono(DoctorResponseDTO.class)
                     .block();

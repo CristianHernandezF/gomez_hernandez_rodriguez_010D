@@ -8,4 +8,5 @@ public class PacienteDTO {
     private String nombreCompleto;
     private String correo;
     private String numTelefono;
+    private DireccionDTO direccion;
 }

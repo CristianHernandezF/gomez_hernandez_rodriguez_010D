@@ -31,21 +31,31 @@ spring:
 
          # --- SEPARACIÓN DEL SERVICIO DE DOCTORES ---
 
-        # 1. Registro y Gestión de Doctores (Público o sin filtro de RUN)
-        # Esto permite crear doctores sin estar logueado previamente
+        # --- SERVICIO DE DOCTORES ---
+
+        # 1. Registro de Doctor (Público)
+        - id: doctor-registro-publico
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/v1/doctores
+            - Method=POST
+
+        # 2. Gestión de Doctores (Protegido - Requiere ADMIN para ciertas rutas)
         - id: service-doctores-gestion
           uri: http://localhost:8085
           predicates:
             - Path=/api/v1/doctores/**
+          filters:
+            - AuthenticationFilter
 
-        # 2. Gestión de Atenciones (Protegido)
-        # Aquí sí se valida el Token y se extrae el RUN del Doctor
+        # 3. Gestión de Atenciones (Protegido - Solo DOCTOR)
         - id: service-doctores-atenciones
           uri: http://localhost:8085
           predicates:
             - Path=/api/v1/atenciones/**
           filters:
             - AuthenticationFilter
+
 
         # ------------------------------------------
 
@@ -77,6 +87,20 @@ spring:
           uri: http://localhost:8089
           predicates:
             - Path=/api/v1/reportes/**
+          filters:
+            - AuthenticationFilter
+
+        - id: service-telemedicina
+          uri: http://localhost:8090
+          predicates:
+            - Path=/api/v1/telemedicina/**
+          filters:
+            - AuthenticationFilter
+
+        - id: service-notificaciones
+          uri: http://localhost:8091
+          predicates:
+            - Path=/api/v1/notificaciones/**
           filters:
             - AuthenticationFilter
             

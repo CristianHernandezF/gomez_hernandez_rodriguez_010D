@@ -26,7 +26,7 @@ public class NotificacionService {
         notificacion.setFechaEnvio(request.getFechaEnvio());
         notificacion.setHoraEnvio(request.getHoraEnvio());
         notificacion.setEstadoEnvio(false); // Siempre inicia como pendiente
-
+        notificacion.setIdEvento(request.getIdEvento());
         return mapearAResponse(repository.save(notificacion));
     }
 

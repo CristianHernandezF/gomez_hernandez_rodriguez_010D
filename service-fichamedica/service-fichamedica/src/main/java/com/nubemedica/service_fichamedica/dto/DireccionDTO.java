@@ -1,0 +1,18 @@
+package com.nubemedica.service_fichamedica.dto;
+
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class DireccionDTO {
+    private Long idDireccion;
+    private String nombre;
+    private String region;
+    private String comuna;
+}
