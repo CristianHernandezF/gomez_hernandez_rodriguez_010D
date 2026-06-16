@@ -6,12 +6,28 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:8081"
+            allowedMethods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+            allowedHeaders: "*"
       routes:
         # SERVICIO DE LOGIN (Público)
         - id: service-login
           uri: http://localhost:8082
           predicates:
             - Path=/api/v1/auth/**
+
+        - id: docs-login # Swagger documentacion login
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/login/v3/api-docs
 
         # SERVICIO DE DIRECCIONES (Protegido)
         - id: service-direccion
@@ -21,6 +37,12 @@ spring:
           filters:
             - AuthenticationFilter
 
+        - id: docs-direccion # Swagger documentacion direccion
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/v1/direccion/v3/api-docs
+          
+
         # SERVICIO DE PACIENTES (Protegido)
         - id: service-pacientes
           uri: http://localhost:8084
@@ -29,7 +51,7 @@ spring:
           filters:
             - AuthenticationFilter
 
-         # --- SEPARACIÓN DEL SERVICIO DE DOCTORES ---
+        # --- SEPARACIÓN DEL SERVICIO DE DOCTORES ---
 
         # --- SERVICIO DE DOCTORES ---
 
@@ -105,3 +127,15 @@ spring:
             - AuthenticationFilter
             
 jwt.secret: "39b45678a1b2c3d4e5f678901234567890abcdef1234567890abcdef12345678"
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+springdoc:
+  swagger-ui:
+    urls:
+      - name: Servicio direccion
+        url: /api/v1/direccion/v3/api-docs
+      - name: Servicio login
+        url: /api/v1/login/v3/api-docs
