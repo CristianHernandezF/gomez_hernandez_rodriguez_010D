@@ -6,6 +6,9 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      default-filters:
+        # Este filtro elimina duplicados y conserva una sola cabecera CORS única
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
       globalcors:
         cors-configurations:
           '[/**]':
