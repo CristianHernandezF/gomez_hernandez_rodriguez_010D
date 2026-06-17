@@ -6,9 +6,6 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      default-filters:
-        # Este filtro elimina duplicados y conserva una sola cabecera CORS única
-        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
       globalcors:
         cors-configurations:
           '[/**]':
@@ -81,6 +78,11 @@ spring:
           filters:
             - AuthenticationFilter
 
+        - id: docs-doctores # Swagger documentacion direccion
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/v1/doctor/v3/api-docs
+
 
         # ------------------------------------------
 
@@ -142,3 +144,5 @@ springdoc:
         url: /api/v1/direccion/v3/api-docs
       - name: Servicio login
         url: /api/v1/login/v3/api-docs
+      - name: Servicio Doctor
+        url: /api/v1/doctor/v3/api-docs
