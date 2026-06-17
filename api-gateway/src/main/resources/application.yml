@@ -42,7 +42,7 @@ spring:
           predicates:
             - Path=/api/v1/direccion/v3/api-docs
           
-
+        
         # SERVICIO DE PACIENTES (Protegido)
         - id: service-pacientes
           uri: http://localhost:8084
@@ -50,6 +50,11 @@ spring:
             - Path=/api/v1/pacientes/**
           filters:
             - AuthenticationFilter
+        
+        - id: docs-paciente # Swagger documentacion paciente
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/v1/paciente/v3/api-docs
 
         # --- SEPARACIÓN DEL SERVICIO DE DOCTORES ---
 
@@ -78,13 +83,18 @@ spring:
           filters:
             - AuthenticationFilter
 
-        - id: docs-doctores # Swagger documentacion direccion
+        - id: docs-doctores # Swagger documentacion doctores
           uri: http://localhost:8085
           predicates:
             - Path=/api/v1/doctor/v3/api-docs
 
 
         # ------------------------------------------
+
+        - id: docs-calendario # Swagger documentacion calendario
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/v1/calendarios/v3/api-docs
 
         # SERVICIO DE CALENDARIO (Protegido)
         - id: service-calendario
@@ -93,6 +103,11 @@ spring:
             - Path=/api/v1/calendario/**
           filters:
             - AuthenticationFilter
+        
+        - id: docs-estadocitas # Swagger documentacion estadocita
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/v1/estadocitas/v3/api-docs
 
         # SERVICIO DE ESTADO CITA (Protegido)
         - id: service-estadocita
@@ -144,3 +159,9 @@ springdoc:
         url: /api/v1/login/v3/api-docs
       - name: Servicio Doctor
         url: /api/v1/doctor/v3/api-docs
+      - name: servicio paciente
+        url: /api/v1/paciente/v3/api-docs
+      - name: servicio calendarios
+        url: /api/v1/calendarios/v3/api-docs
+      - name: servicio estadocita
+        url:  /api/v1/estadocitas/v3/api-docs

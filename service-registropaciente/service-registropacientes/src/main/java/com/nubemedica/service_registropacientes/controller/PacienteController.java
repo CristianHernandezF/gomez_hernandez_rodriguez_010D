@@ -17,6 +17,7 @@ import com.nubemedica.service_registropacientes.service.PacienteService;
 
 import jakarta.validation.Valid;
 
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 
 @RestController
 @RequestMapping("api/v1/pacientes")
+@CrossOrigin(origins = "http://localhost:8081")
 public class PacienteController {
 
     @Autowired
