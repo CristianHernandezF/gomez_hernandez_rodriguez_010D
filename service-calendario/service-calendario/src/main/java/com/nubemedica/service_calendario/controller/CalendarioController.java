@@ -14,6 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/calendario")
+@CrossOrigin(origins = "http://localhost:8081")
 public class CalendarioController {
 
     @Autowired
