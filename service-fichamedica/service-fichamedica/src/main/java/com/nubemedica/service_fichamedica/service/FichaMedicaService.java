@@ -47,7 +47,7 @@ public class FichaMedicaService {
     @Value("${microservicio.pacientes.url:http://localhost:8081/api/v1/pacientes}")
     private String urlMsPacientes;
 
-    @Value("${ms.reportes.url:http://localhost:8088/api/v1/reportes}")
+    @Value("${ms.reportes.url:http://localhost:8089/api/v1/reportes}")
     private String urlMsReportes;
 
     @Value("${ms.doctores.url:http://localhost:8085/api/v1/atenciones}")

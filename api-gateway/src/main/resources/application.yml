@@ -140,8 +140,6 @@ spring:
           uri: http://localhost:8089
           predicates:
             - Path=/api/v1/reportes/**
-          filters:
-            - AuthenticationFilter
 
         - id: docs-telemedicinas # Swagger documentacion telemedicina
           uri: http://localhost:8089
