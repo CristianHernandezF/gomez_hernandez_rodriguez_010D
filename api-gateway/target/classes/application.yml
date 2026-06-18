@@ -142,7 +142,7 @@ spring:
             - Path=/api/v1/reportes/**
 
         - id: docs-telemedicinas # Swagger documentacion telemedicina
-          uri: http://localhost:8089
+          uri: http://localhost:8090
           predicates:
             - Path=/api/v1/telemedicinas/v3/api-docs
 

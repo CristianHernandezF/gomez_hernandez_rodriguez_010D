@@ -54,6 +54,7 @@ public class FichaMedicaController {
 
     // GET /api/v1/fichas/buscar?runPaciente=XX
     @GetMapping("/buscar")
+    
     public ResponseEntity<FichaMedicaResponse> obtenerFichaPorPacienteYDoctor(
             @RequestParam String runPaciente,
             @RequestHeader("X-Doctor-Run") String runDoctorToken) {
