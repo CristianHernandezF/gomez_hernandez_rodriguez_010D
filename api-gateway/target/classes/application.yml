@@ -153,6 +153,11 @@ spring:
           filters:
             - AuthenticationFilter
 
+        - id: docs-notificacion # Swagger documentacion telemedicina
+          uri: http://localhost:8091
+          predicates:
+            - Path=/api/v1/notificacion/v3/api-docs
+
         - id: service-notificaciones
           uri: http://localhost:8091
           predicates:
@@ -187,3 +192,5 @@ springdoc:
         url: /api/v1/reporte/v3/api-docs
       - name: Servicio telemedicina
         url: /api/v1/telemedicinas/v3/api-docs
+      - name: Servicio notificacion
+        url: /api/v1/notificacion/v3/api-docs
