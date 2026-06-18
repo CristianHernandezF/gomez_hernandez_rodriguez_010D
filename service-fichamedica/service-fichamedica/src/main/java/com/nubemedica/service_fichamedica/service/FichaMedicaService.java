@@ -108,7 +108,7 @@ public class FichaMedicaService {
 
     // OBTENER FICHA POR RUN PACIENTE (del token se obtiene el doctor)
     @Transactional(readOnly = true)
-    public FichaMedicaResponse obtenerFichaPorPacienteYDoctor(String runPaciente, String runDoctorToken) {
+    public FichaMedicaResponse obtenerFichaPorPacienteYDoctor(String runPaciente, String runDoctorToken, String token) {
         validarRelacionDoctorPaciente(runDoctorToken, runPaciente);
 
         FichaMedica ficha = fichaMedicaRepository
@@ -118,7 +118,7 @@ public class FichaMedicaService {
                 " con el doctor " + runDoctorToken
             ));
 
-        PacienteDTO paciente = obtenerDatosPaciente(runPaciente, null);
+        PacienteDTO paciente = obtenerDatosPaciente(runPaciente, token);
         return mapearAResponse(ficha, paciente);
     }
 
@@ -126,10 +126,10 @@ public class FichaMedicaService {
     // LISTAR TODAS LAS FICHAS DEL DOCTOR AUTENTICADO
     // =====================================================================
     @Transactional(readOnly = true)
-    public List<FichaMedicaResponse> listarFichasPorDoctor(String runDoctorToken) {
+    public List<FichaMedicaResponse> listarFichasPorDoctor(String runDoctorToken, String token) {
         return fichaMedicaRepository.findByRunDoctor(runDoctorToken).stream()
             .map(ficha -> {
-                PacienteDTO paciente = obtenerDatosPaciente(ficha.getRunPaciente(), null);
+                PacienteDTO paciente = obtenerDatosPaciente(ficha.getRunPaciente(), token);
                 return mapearAResponse(ficha, paciente);
             }).collect(Collectors.toList());
     }

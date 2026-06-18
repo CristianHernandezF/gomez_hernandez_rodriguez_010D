@@ -57,18 +57,20 @@ public class FichaMedicaController {
     
     public ResponseEntity<FichaMedicaResponse> obtenerFichaPorPacienteYDoctor(
             @RequestParam String runPaciente,
-            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+            @RequestHeader("X-Doctor-Run") String runDoctorToken,
+            @RequestHeader("Authorization") String token) {
 
         return ResponseEntity.ok(fichaMedicaService
-                .obtenerFichaPorPacienteYDoctor(runPaciente, runDoctorToken)); 
+                .obtenerFichaPorPacienteYDoctor(runPaciente, runDoctorToken, token)); 
     }
 
     // GET /api/v1/fichas/doctor
     @GetMapping("/doctor")
     public ResponseEntity<List<FichaMedicaResponse>> listarFichasPorDoctor(
-            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+            @RequestHeader("X-Doctor-Run") String runDoctorToken,
+            @RequestHeader("Authorization") String token) {
 
-        return ResponseEntity.ok(fichaMedicaService.listarFichasPorDoctor(runDoctorToken));
+        return ResponseEntity.ok(fichaMedicaService.listarFichasPorDoctor(runDoctorToken, token));
     }
 
     // PUT /api/v1/fichas/{id}
