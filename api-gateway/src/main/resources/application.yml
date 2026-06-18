@@ -116,6 +116,12 @@ spring:
             - Path=/api/v1/estadocita/**
           filters:
             - AuthenticationFilter
+
+        - id: docs-fichamedica # Swagger documentacion fichasmedicas
+          uri: http://localhost:8088
+          predicates:
+            - Path=/api/v1/fichasmedicas/v3/api-docs
+
         # SERVICIO DE FICHA MÉDICA (Protegido)
         - id: service-fichamedica
           uri: http://localhost:8088
@@ -124,6 +130,11 @@ spring:
           filters:
             - AuthenticationFilter
 
+        - id: docs-reporte # Swagger documentacion reporte
+          uri: http://localhost:8089
+          predicates:
+            - Path=/api/v1/reporte/v3/api-docs
+
         # SERVICIO DE REPORTES (Protegido - solo acceso interno desde fichamedica)
         - id: service-reportes
           uri: http://localhost:8089
@@ -131,6 +142,11 @@ spring:
             - Path=/api/v1/reportes/**
           filters:
             - AuthenticationFilter
+
+        - id: docs-telemedicinas # Swagger documentacion telemedicina
+          uri: http://localhost:8089
+          predicates:
+            - Path=/api/v1/telemedicinas/v3/api-docs
 
         - id: service-telemedicina
           uri: http://localhost:8090
@@ -161,9 +177,15 @@ springdoc:
         url: /api/v1/login/v3/api-docs
       - name: Servicio Doctor
         url: /api/v1/doctor/v3/api-docs
-      - name: servicio paciente
+      - name: Servicio paciente
         url: /api/v1/paciente/v3/api-docs
-      - name: servicio calendarios
+      - name: Servicio calendarios
         url: /api/v1/calendarios/v3/api-docs
-      - name: servicio estadocita
+      - name: Servicio estadocita
         url:  /api/v1/estadocitas/v3/api-docs
+      - name: Servicio fichasmedicas
+        url: /api/v1/fichasmedicas/v3/api-docs
+      - name: Servicio reportes
+        url: /api/v1/reporte/v3/api-docs
+      - name: Servicio telemedicina
+        url: /api/v1/telemedicinas/v3/api-docs

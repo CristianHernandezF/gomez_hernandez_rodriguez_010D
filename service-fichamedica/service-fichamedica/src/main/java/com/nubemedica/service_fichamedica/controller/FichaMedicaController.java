@@ -16,6 +16,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/fichas")
+@CrossOrigin(origins = "http://localhost:8081")
 public class FichaMedicaController {
 
     @Autowired

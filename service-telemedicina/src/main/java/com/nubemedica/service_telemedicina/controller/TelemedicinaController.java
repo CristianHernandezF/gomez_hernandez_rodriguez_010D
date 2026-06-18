@@ -11,6 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/telemedicina")
+@CrossOrigin(origins = "http://localhost:8081")
 public class TelemedicinaController {
 
     @Autowired
