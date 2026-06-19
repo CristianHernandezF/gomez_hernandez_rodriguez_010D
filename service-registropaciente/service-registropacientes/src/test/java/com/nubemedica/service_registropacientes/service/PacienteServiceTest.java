@@ -185,7 +185,6 @@ public class PacienteServiceTest {
         lenient().when(webClient.post()).thenReturn(requestBodyUriSpec);
         lenient().when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
         lenient().when(requestBodyUriSpec.uri(anyString(), any(), any())).thenReturn(requestBodySpec);
-        // CORRECCIÓN AQUÍ: Asegúrate que el nombre coincida con tu @Mock
         lenient().when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
         lenient().when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
