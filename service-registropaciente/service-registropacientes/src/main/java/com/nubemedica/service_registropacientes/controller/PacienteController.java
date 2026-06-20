@@ -15,6 +15,7 @@ import com.nubemedica.service_registropacientes.dto.PacienteRegistroRequest;
 import com.nubemedica.service_registropacientes.dto.ActualizarPacienteRequest;
 import com.nubemedica.service_registropacientes.service.PacienteService;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -35,12 +36,14 @@ public class PacienteController {
     private PacienteService pacienteService;
 
     @PostMapping
+    @Operation(summary = "Crear un paciente",description = "Requiere datos del paciente y rut del doctor")
     public ResponseEntity<PacienteRegistroResponse> registrarPaciente(@Valid @RequestBody PacienteRegistroRequest request, 
         @RequestHeader("X-Doctor-Run") String runDoctor){
         return ResponseEntity.status(HttpStatus.CREATED).body(pacienteService.guardarPaciente(request, runDoctor));
     }
     
     @GetMapping("/{runPaciente}")
+    @Operation(summary = "Obtener un paciente",description = "Requiere el token,el rut del paciente y rut del doctor")
     public ResponseEntity<PacienteResponse> obtenerPaciente (@PathVariable String runPaciente,
         @RequestHeader("X-Doctor-Run") String runDoctor,
         @RequestHeader("Authorization") String token){
@@ -48,16 +51,19 @@ public class PacienteController {
     }
 
     @GetMapping
+    @Operation(summary = "Lista paciente de un doctor",description = "requiere autentificacion y rut del doctor")
     public ResponseEntity<List<PacienteResponse>> listarMisPacientes(@RequestHeader("X-Doctor-Run") String runDoctor){
         return ResponseEntity.ok(pacienteService.listarPacientesDeUnDoctor(runDoctor));
     }
 
     @GetMapping("/{runPaciente}/resumen")
+    @Operation(summary = "Obtener un resumen de datos del paciente",description = "se requiere un rut de paciente")
     public ResponseEntity<PacienteResumenDTO> obtenerResumen(@PathVariable String runPaciente) {
         return ResponseEntity.ok(pacienteService.obtenerResumenPaciente(runPaciente));
     }
 
     @PutMapping("/{runPaciente}")
+    @Operation(summary = "Actualizar paciente",description = "Se requiere autentificacion del doctor, rut del doctor y rut del paciente")
     public ResponseEntity<PacienteResponse> actualizarPaciente(@PathVariable String runPaciente,
         @Valid @RequestBody ActualizarPacienteRequest request,
         @RequestHeader("X-Doctor-Run") String runDoctor){
@@ -65,6 +71,7 @@ public class PacienteController {
     }
 
     @DeleteMapping("/{runPaciente}/desasociar")
+    @Operation(summary = "Desasociar Paciente",description = "Solamente se desasocia el paciente debido a que mas doctores podrian tener este paciente, se necesita el rut del paciente ,autentificacion y rut de doctor")
     public ResponseEntity<Void> desasociar(@PathVariable String runPaciente,
                                            @RequestHeader("X-Doctor-Run") String runDoctor) {
         pacienteService.eliminarRelacionDoctorPaciente(runPaciente, runDoctor);

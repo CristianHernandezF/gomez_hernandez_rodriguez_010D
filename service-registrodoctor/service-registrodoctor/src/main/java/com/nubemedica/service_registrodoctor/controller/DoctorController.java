@@ -14,7 +14,7 @@ import com.nubemedica.service_registrodoctor.dto.DoctorResponse;
 import com.nubemedica.service_registrodoctor.dto.RegistrarDoctorRequest;
 import com.nubemedica.service_registrodoctor.service.DoctorService;
 
-
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -39,24 +39,28 @@ public class DoctorController {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     @PostMapping("")
+    @Operation(summary = "Crea un doctor a la base de datos",description = "Utiliza el requestbody para crear un doctor")
     public ResponseEntity<DoctorResponse> registrarDoctor(@Valid @RequestBody RegistrarDoctorRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(doctorService.registrarDoctor(request));
     }
 
     @GetMapping("/todos")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Lista todos los doctores si se tiene un rol de Admin")
     public List<DoctorResponse> listarDoctores() {
         return doctorService.listarTodos();
     }
 
     @GetMapping("/{runDoctor}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR') and #runDoctor == authentication.name")
+    @Operation(summary = "Se obtiene informacion del doctor por RUT",description = "Solo puede obtener informacion de si mismo.")
     public ResponseEntity<DoctorResponse> obtenerDoctor(@PathVariable String runDoctor) {
         return ResponseEntity.ok(doctorService.obtenerPorRun(runDoctor));
     }
 
     @PutMapping("/{runDoctor}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR') and #runDoctor == authentication.name")
+    @Operation(summary = "Actualizar informacion de un doctor utilizando su rut")
     public ResponseEntity<DoctorResponse> actualizarDoctor(
             @PathVariable String runDoctor,
             @Valid @RequestBody ActualizarDoctorRequest request) {
@@ -65,6 +69,7 @@ public class DoctorController {
 
     @DeleteMapping("/{runDoctor}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR') and #runDoctor == authentication.name")
+    @Operation(summary = "Eliminar a un doctor por RUT", description = "Solo puede eliminarse el mismo")
     public ResponseEntity<Void> eliminarDoctor(@PathVariable String runDoctor) {
         doctorService.eliminarDoctor(runDoctor);
         return ResponseEntity.noContent().build();

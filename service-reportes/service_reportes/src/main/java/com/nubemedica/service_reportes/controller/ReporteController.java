@@ -20,6 +20,7 @@ import com.nubemedica.service_reportes.dto.ReporteRequest;
 import com.nubemedica.service_reportes.dto.ReporteResponse;
 import com.nubemedica.service_reportes.service.ReporteService;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
 @RestController
@@ -36,6 +37,7 @@ public class ReporteController {
     // El doctor NO llama a este endpoint directamente
     // =====================================================================
     @PostMapping
+    @Operation(summary = "Crear un reporte",description = "Utiliza un body con los datos de reporte.")
     public ResponseEntity<ReporteResponse> crearReporte(
             @Valid @RequestBody ReporteRequest request) {
 
@@ -49,6 +51,7 @@ public class ReporteController {
     // Obtiene un reporte puntual por su ID
     // =====================================================================
     @GetMapping("/{id}")
+    @Operation(summary = "Obtiene un reporte por su ID")
     public ResponseEntity<ReporteResponse> obtenerPorId(
             @PathVariable Long id) {
 
@@ -61,6 +64,7 @@ public class ReporteController {
     // Devuelve todos los reportes que pertenecen a una ficha
     // =====================================================================
     @GetMapping("/ficha/{idFichaMedica}")
+    @Operation(summary = "Listar reportes por ID de ficha")
     public ResponseEntity<List<ReporteResponse>> listarPorFicha(
             @PathVariable Long idFichaMedica) {
 
@@ -72,6 +76,7 @@ public class ReporteController {
     // Actualiza el nombre y descripción de un reporte existente
     // =====================================================================
     @PutMapping("/{id}")
+    @Operation(summary = "Actualizar Reporte por su ID",description = "Requiere ID de reporte y body del reporte")
     public ResponseEntity<ReporteResponse> actualizarReporte(
             @PathVariable Long id,
             @Valid @RequestBody ReporteRequest request) {
@@ -84,6 +89,7 @@ public class ReporteController {
     // Elimina un reporte y su DetalleReporte asociado
     // =====================================================================
     @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar reporte por su ID")
     public ResponseEntity<Void> eliminarReporte(
             @PathVariable Long id) {
 
