@@ -2,8 +2,11 @@
 Projecto Fullstack
 Se utiliza SpringBoot 3.5.14
 Se utiliza Java version 21
+Se utiliza Mockito y J5UNIT
+se utiliza Swagger UI
 
-Les Microservicios entregados en esta experiencia de aprendizaje seran 5
+
+Les Microservicios entregados en esta experiencia de aprendizaje seran los 10 microservicios.
 
 
 Api-GateWay -> port 8081
@@ -13,6 +16,10 @@ Service-Calendario -> 8086
 Service-RegistroDoctor -> port 8085
 Service-Pacientes -> port 8084
 Service-EstadoCita -> port 8087
+Service-FichaMedica -> port 8088
+Service-reportes -> port 8089
+Service-notificaciones -> port 8090
+Service-telemedicina -> port 8091
 
 PROBLEMATICA DEL CLIENTE
 Problemática: 
@@ -30,6 +37,14 @@ El MicroServicio Calendario Sirve para que el usuario pueda Ver tanto sus Citas 
 El MicroServicio Login Sirve para que el usuario tenga una manera de ingresar a el sistema de manera segura.
 
 El microServicio EstadoCita Sirve para Otorgarle un Tipo de estado a las citas medicas (Agendado,Cancelado,Realizado) para que el usuario sepa si las citas ocurrieron o no.
+
+El microservicio fichamedica se encarga de tener una ficha medica coherente de los pacientes de un medico
+
+el microservicio reportes se encarga de que cada doctor pueda agregar reportes de cada una de sus citas medicas
+
+el microservicio notificaciones se encarga de entregar una notificacion de cuando sera su cita medica o actividad personal
+
+el microservicio telemedicina se encarga de crear un link de telemedicina para la cita medica asociada.
 
 El modelo de base de datos se encuentra dentro de la carpeta Documentos para poder hacer las verificaciones correspondientes.
 
@@ -92,6 +107,8 @@ VALUES ('Cita Médica', '#E53935');
 -- Actividad Personal: Usualmente se usa Azul o Verde
 INSERT INTO tipo_evento (nombre_tipo, color_tipo) 
 VALUES ('Actividad Personal', '#1E88E5');
+
+Pagina ruta swagger: localhost:8081/swagger-ui.hhtml
 
 Service RegistroDoctor prueba de post se realizo con los siguientes datos http://localhost:8081/api/v1/doctores
 {

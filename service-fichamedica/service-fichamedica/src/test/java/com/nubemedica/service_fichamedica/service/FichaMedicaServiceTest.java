@@ -51,6 +51,7 @@ public class FichaMedicaServiceTest {
     void crearFicha_Success() {
         String runP = "123-K";
         String runD = "DOC-1";
+        String token = "1123234";
 
         // Mocks iniciales
         when(fichaMedicaRepository.existsByRunPacienteAndRunDoctor(runP, runD)).thenReturn(false);
@@ -73,7 +74,7 @@ public class FichaMedicaServiceTest {
             return f;
         });
 
-        FichaMedicaResponse response = fichaMedicaService.crearFicha(runP, runD);
+        FichaMedicaResponse response = fichaMedicaService.crearFicha(runP, runD, token);
 
         assertNotNull(response);
         assertEquals(1L, response.getIdFichaMedica());

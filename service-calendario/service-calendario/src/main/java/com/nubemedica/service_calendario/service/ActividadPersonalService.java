@@ -211,7 +211,7 @@ public class ActividadPersonalService {
         try {
             // Nota: Este endpoint debe existir en MS-NOTIFICACIONES para borrar por evento
             webClientBuilder.build().delete()
-                    .uri(urlNotificaciones + "/evento/" + idEvento)
+                    .uri(urlNotificaciones+"/" + idEvento)
                     .retrieve()
                     .bodyToMono(Void.class)
                     .block();

@@ -29,10 +29,11 @@ public class FichaMedicaController {
     @Operation(summary = "Crear una  ficha medica para un paciente",description = "Requiere autentificacion del doctor, rut de doctor y rut de paciente")
     public ResponseEntity<FichaMedicaResponse> crearFicha(
             @RequestParam String runPaciente,
-            @RequestHeader("X-Doctor-Run") String runDoctorToken) {
+            @RequestHeader("X-Doctor-Run") String runDoctorToken,
+            @RequestHeader("Authorization") String token) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(fichaMedicaService.crearFicha(runPaciente, runDoctorToken));
+                .body(fichaMedicaService.crearFicha(runPaciente, runDoctorToken, token));
     }
 
     @PostMapping("/interno")

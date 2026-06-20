@@ -57,7 +57,7 @@ public class FichaMedicaService {
     // CREAR FICHA MÉDICA
     // =====================================================================
     @Transactional
-    public FichaMedicaResponse crearFicha(String runPaciente, String runDoctorToken) {
+    public FichaMedicaResponse crearFicha(String runPaciente, String runDoctorToken, String token) {
         validarRelacionDoctorPaciente(runDoctorToken, runPaciente);
 
         if (fichaMedicaRepository.existsByRunPacienteAndRunDoctor(runPaciente, runDoctorToken)) {
@@ -72,7 +72,7 @@ public class FichaMedicaService {
         nuevaFicha.setRunDoctor(runDoctorToken);
 
         FichaMedica guardada = fichaMedicaRepository.save(nuevaFicha);
-        PacienteDTO paciente = obtenerDatosPaciente(runPaciente, null);
+        PacienteDTO paciente = obtenerDatosPaciente(runPaciente,token);
         return mapearAResponse(guardada, paciente);
     }
 
