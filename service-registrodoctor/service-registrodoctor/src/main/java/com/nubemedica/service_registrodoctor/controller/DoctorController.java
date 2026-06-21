@@ -39,7 +39,7 @@ public class DoctorController {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     @PostMapping("")
-    @Operation(summary = "Crea un doctor a la base de datos",description = "Utiliza el requestbody para crear un doctor")
+    @Operation(summary = "Crea un doctor a la base de datos",description = "Utiliza el requestbody para crear un doctor IMPORTANTE LONGITUD DE CONTRASEÑA 8 CARACTERES")
     public ResponseEntity<DoctorResponse> registrarDoctor(@Valid @RequestBody RegistrarDoctorRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(doctorService.registrarDoctor(request));
     }
